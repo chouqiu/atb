@@ -3,7 +3,7 @@
 import os
 import socket
 import threading
-from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from urllib.request import *
@@ -18,7 +18,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 socket.setdefaulttimeout(60)
 info_lock = threading.Lock()
 info_arr = []
-
+download_count = 0
 
 class MyExcept(Exception):
     pass
@@ -216,10 +216,14 @@ def down_file(url, id):
 
 
 def fetch_url(args):
+    global info_lock
+    global info_arr
+    global download_count
     # 网址
     # Accept - Language: zh - CN
     # Connection: Keep - Alive
     # Cookie: JSESSIONID=76782BCA557E307FBC7F29CB08E250FF;tk=VDAxKt94hbSfakQbTHXBgDSCDexK3E0EK7VJsIrwE7Mko1210;route=9036359bb8a8a461c164a04f8f50b252;BIGipServerotn=1290797578.38945.0000;BIGipServerpool_passport=300745226.50215.0000;current_captcha_type=Z;_jc_save_fromStation=%u5E7F%u5DDE%2CGZQ;_jc_save_toStation=%u6DF1%u5733%2CSZQ;_jc_save_fromDate=2017-10-07;_jc_save_toDate=2017-10-03;_jc_save_wfdc_flag=dc
+    print("get args: %s" % (args,))
 
     url = args
     h = ""
@@ -281,7 +285,8 @@ def fetch_url(args):
         soup = BeautifulSoup(data, "lxml")
         for child in soup.find_all("source", label="360p"):
             print(child["src"])
-            fetch_link(child["src"], info["id"])
+            downrst = fetch_link(child["src"], info["id"])
+            print("get link %s, %d" % (downrst[0], downrst[1]))
             break
 
             # 打印爬取网页的各类信息
@@ -305,20 +310,31 @@ def fetch_url(args):
                 os.remove(fn)
                 print("remove fail: %s ..." % (fn))
 
+    info_lock.acquire()
+    if download_count > 0 :
+        download_count = download_count - 1
+    else :
+        print("thread running but counter invalid: %d" % (download_count))
+    info_lock.release()
+
 
 if __name__ == "__main__":
     # threads = {}
+    input_sess = PromptSession(history=FileHistory("history.txt"), auto_suggest=AutoSuggestFromHistory(), enable_history_search=True)
     while True:
-        user_input = prompt("URL> ", history=FileHistory("history.txt"), auto_suggest=AutoSuggestFromHistory())
+        user_input = input_sess.prompt("URL> ")
         if user_input == "exit" or user_input == "quit":
-            print("current threads %d, exiting ..." % (threading.active_count()))
+            print("current threads %d, exiting ..." % (download_count))
             break
-        if user_input:
+        if len(user_input)>4:
             # print(user_input)
-            if threading.active_count() >= 10:
-                print("current %d threads running ,please wait..." % (threading.active_count()))
+            if download_count >= 10:
+                print("current %d threads running ,please wait..." % (download_count))
                 continue
             else:
+                info_lock.acquire()
+                download_count = download_count+1
+                info_lock.release()
                 t = threading.Thread(target=fetch_url, args=(user_input,))
                 t.setDaemon(True)
                 # threads[t.getName()] = 1
@@ -339,4 +355,4 @@ if __name__ == "__main__":
             print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
         info_lock.release()
 
-        print("current threads: %d" % (threading.active_count()))
+        print("current threads: %d" % (download_count))
