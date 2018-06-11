@@ -12,5 +12,5 @@ from pip import __main__
 if __name__ == '__main__':  
     sys.exit(__main__._main()) 
 ```
-2. use original pip3: sudo pip3 install xxxx
+2. use original pip3 plus sudo: sudo pip3 install xxxx
  
