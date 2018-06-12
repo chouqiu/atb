@@ -33,6 +33,7 @@ class MyExcept(Exception):
 def sort_rate():
     global video_arr
     global video_sort
+    video_sort = []
     for vid in video_arr:
         rate = video_arr[vid]['rate']
         irate = int(rate.split('%')[0])
@@ -426,7 +427,7 @@ if __name__ == "__main__":
                 video_show_idx = 0
             print("show list from %d/%d" % (video_show_idx, len(video_arr)))
 
-            if len(video_sort) <= 0 :
+            if len(video_sort) <= 0 or len(video_arr) != len(video_sort):
                 sort_rate()
                 print("total sort list: %d" % (len(video_sort)))
 
