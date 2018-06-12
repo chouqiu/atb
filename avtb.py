@@ -20,11 +20,39 @@ socket.setdefaulttimeout(60)
 info_lock = threading.Lock()
 info_arr = []
 download_count = 0
+video_lock = threading.Lock()
 video_arr = {}
+video_sort = []
+video_show_idx = 0
 main_host="http://www.999avtb.com/"
 
 class MyExcept(Exception):
     pass
+
+
+def sort_rate():
+    global video_arr
+    global video_sort
+    for vid in video_arr:
+        rate = video_arr[vid]['rate']
+        irate = int(rate.split('%')[0])
+        fromidx = 0
+        toidx = len(video_sort)
+        mid = 0
+        while toidx >= 0 and toidx > fromidx:
+            mid = int(fromidx + (toidx - fromidx) / 2)
+            crate = int(video_arr[video_sort[mid]]['rate'].split('%')[0])
+            if crate > irate:
+                fromidx = mid + 1
+            elif crate < irate:
+                toidx = mid - 1
+            else:
+                break
+            mid = fromidx
+            #print("%d %d %d"%(fromidx, toidx, len(video_sort)))
+
+        video_sort.insert(mid, vid)
+        #print("insert %s/%s to %d" % (rate, vid, mid))
 
 
 def fetch_link(url, idx):
@@ -224,6 +252,7 @@ def fetch_url(arg, arg_type):
     global info_arr
     global download_count
     global video_arr
+    global video_lock
     # 网址
     # Accept - Language: zh - CN
     # Connection: Keep - Alive
@@ -298,6 +327,7 @@ def fetch_url(arg, arg_type):
 
         found_list = 0
         print("")
+        video_lock.acquire()
         for child in soup.find_all("a", class_="thumbnail") :
             vinfo = child['href'].split('/')
             #if len(vinfo) < 3 :
@@ -307,7 +337,10 @@ def fetch_url(arg, arg_type):
             for cc in child.find_all("span", class_="video-rating") :
                 video_arr[vinfo[1]].update({'rate':cc.get_text().strip()})
                 break
-            print("%s [%s]  %s" % (vinfo[1], video_arr[vinfo[1]]['rate'], video_arr[vinfo[1]]['name']))
+        video_lock.release()
+
+        if found_list > 0 :
+            print("get list from %s: %d" % (url, found_list))
         
         if found <= 0 and found_list <= 0 :
             print("no resource found for url %s." % (url))
@@ -370,13 +403,40 @@ if __name__ == "__main__":
                     t.start()
         if re.match(r"^list$", user_input) :
             print("fetch list ...")
+            video_lock.acquire()
             video_arr = {}
+            video_show_idx = 0
+            video_sort = []
+            video_lock.release()
             info_lock.acquire()
-            download_count = download_count+1
+            download_count = download_count+3
             info_lock.release()
             t = threading.Thread(target=fetch_url, args=(main_host, 0))
+            t1 = threading.Thread(target=fetch_url, args=(main_host+"recent/2/", 0))
+            t2 = threading.Thread(target=fetch_url, args=(main_host+"recent/3/", 0))
             t.setDaemon(True)
             t.start()
+            t1.setDaemon(True)
+            t1.start()
+            t2.setDaemon(True)
+            t2.start()
+        if user_input == 'n' or re.match("^next$", user_input) :
+            video_lock.acquire()
+            if video_show_idx >= len(video_arr) :
+                video_show_idx = 0
+            print("show list from %d/%d" % (video_show_idx, len(video_arr)))
+
+            if len(video_sort) <= 0 :
+                sort_rate()
+                print("total sort list: %d" % (len(video_sort)))
+
+            show_cnt = 0
+            while video_show_idx < len(video_sort) and show_cnt < 10 :
+                show_cnt = show_cnt + 1
+                video_show_idx = (video_show_idx + 1) % len(video_sort)
+                vid = video_sort[video_show_idx]
+                print("%s [%s]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+            video_lock.release()
 
         info_lock.acquire()
         for info in info_arr:
