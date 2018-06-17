@@ -14,3 +14,7 @@ if __name__ == '__main__':
 ```
 2. use original pip3 plus sudo: sudo pip3 install xxxx
  
+### changelog
+* 2018-06-17 v2.2
+> 1. support seaching
+> 2. modify some bugs

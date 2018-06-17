@@ -9,9 +9,11 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from urllib.request import *
 from urllib.error import *
+from urllib import parse
 from time import *
 from random import *
 import ssl
+import requests
 # import json
 from bs4 import BeautifulSoup
 
@@ -248,7 +250,7 @@ def down_file(url, id):
 
 
 # type=0: list, type=1: download
-def fetch_url(arg, arg_type):
+def fetch_url(arg, arg_type, isshow=False, use_req=False):
     global info_lock
     global info_arr
     global download_count
@@ -261,12 +263,21 @@ def fetch_url(arg, arg_type):
     print("get args: %s" % (arg,))
     url = arg
 
+    urlitems = url.split("/")
+    h = urlitems[2]
+    if len(urlitems) > 3:
+        cgi = urlitems[3].split("?")[0]
+    else:
+        cgi = "/"
+    print("fetch host: %s %s" % (h, cgi))
+
     info = {}
     info["url"] = url
     info["stat"] = 0
-    info["file"] = "NULL"
+    info["file"] = cgi
     info["file_size"] = -1
     info["file_dl"] = 0
+    info["host"] = h
 
     if arg_type == 1:
         info_lock.acquire()
@@ -274,12 +285,7 @@ def fetch_url(arg, arg_type):
         info_arr.append(info)
         info_lock.release()
 
-    h = ""
     try:
-        h = url.split('/')[2]
-        info["host"] = h
-
-        print("fetch host: %s" % (h))
         # url = "http://www.avtb004.com/4048/"
         headers = {
             'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
@@ -288,31 +294,56 @@ def fetch_url(arg, arg_type):
         # 'Accept-Encoding':'gzip, deflate, br',
         # 'Cookie':'JSESSIONID=76782BCA557E307FBC7F29CB08E250FF;tk=VDAxKt94hbSfakQbTHXBgDSCDexK3E0EK7VJsIrwE7Mko1210;route=9036359bb8a8a461c164a04f8f50b252;BIGipServerotn=1290797578.38945.0000;BIGipServerpool_passport=300745226.50215.0000;current_captcha_type=Z;_jc_save_fromStation=%u5E7F%u5DDE%2CGZQ;_jc_save_toStation=%u6DF1%u5733%2CSZQ;_jc_save_fromDate=2017-10-07;_jc_save_toDate=2017-10-03;_jc_save_wfdc_flag=dc'}
 
-        # 请求
-        request = Request(url=url, headers=headers)
-
         # 爬取结果
         down_ok = 1
         http_ok = False
         retry = 1
-        while not http_ok and retry <= 10:
-            try:
-                response = urlopen(request)
-                http_ok = True
-            except HTTPError as e:
-                waitSec = randint(3, 10)
-                print("http error: %d, wait: %d, retry: %d" % (e.code, waitSec, retry))
-                sleep(waitSec)
-            finally:
-                retry = retry + 1
+        data = ""
+        # 请求
+        if use_req == False:
+            request = Request(url=url, headers=headers)
 
-        if retry > 10:
-            return
+            while not http_ok and retry <= 10:
+                try:
+                    response = urlopen(request)
+                    http_ok = True
+                except HTTPError as e:
+                    #print("http error: %d, wait: %d, retry: %d" % (e.code, waitSec, retry))
+                    info_lock.acquire()
+                    info_arr[info["id"]]["stat"] = -3
+                    info_lock.release()
+                    waitSec = randint(3, 10)
+                    sleep(waitSec)
+                finally:
+                    retry = retry + 1
 
-        data = response.read()
+            if retry > 10:
+                raise MyExcept("http retry fail")
 
-        # 设置解码方式
-        data = data.decode('utf-8', errors='ignore')
+            # 设置解码方式
+            data = response.read()
+            data = data.decode('utf-8', errors='ignore')
+        else:
+            while not http_ok and retry <= 10:
+                try:
+                    request = requests.get(url=url, headers=headers)
+                    request.raise_for_status()
+                    request.encoding = 'utf-8'
+                    http_ok = True
+                except Exception as e:
+                    info_lock.acquire()
+                    info_arr[info["id"]]["stat"] = -3
+                    info_lock.release()
+                    waitSec = randint(3, 10)
+                    sleep(waitSec)
+                finally:
+                    retry = retry + 1
+
+            if retry > 10:
+                raise MyExcept("http retry fail")
+            
+            data = request.text
+
 
         # 打印结果
         soup = BeautifulSoup(data, "lxml")
@@ -323,7 +354,8 @@ def fetch_url(arg, arg_type):
             found = found + 1
             print(child["src"])
             downrst = fetch_link(child["src"], info["id"])
-            print("get link %s, %d" % (downrst[0], downrst[1]))
+            if isshow:
+                print("get link %s, %d" % (downrst[0], downrst[1]))
             break
 
         found_list = 0
@@ -338,6 +370,10 @@ def fetch_url(arg, arg_type):
             for cc in child.find_all("span", class_="video-rating") :
                 video_arr[vinfo[1]].update({'rate':cc.get_text().strip()})
                 break
+            if isshow:
+                vid = vinfo[1]
+                print("%s [%s]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+
         video_lock.release()
 
         if found_list > 0 :
@@ -365,9 +401,9 @@ def fetch_url(arg, arg_type):
             info_arr[info["id"]]["stat"] = -2
             fn = info_arr[info["id"]]["file"]
             info_lock.release()
-            if fn != "NULL":
+            if re.match(r"\.", fn):
                 os.remove(fn)
-                print("remove fail: %s ..." % (fn))
+                print("remove file: %s ..." % (fn))
 
     info_lock.acquire()
     if download_count > 0 :
@@ -398,11 +434,11 @@ if __name__ == "__main__":
                     info_lock.acquire()
                     download_count = download_count+1
                     info_lock.release()
-                    t = threading.Thread(target=fetch_url, args=(uu, 1))
+                    t = threading.Thread(target=fetch_url, args=(uu, 1, True))
                     t.setDaemon(True)
                     # threads[t.getName()] = 1
                     t.start()
-        if re.match(r"^list$", user_input) :
+        if user_input == 'l' or re.match(r"^list$", user_input) :
             print("fetch list ...")
             video_lock.acquire()
             video_arr = {}
@@ -421,6 +457,23 @@ if __name__ == "__main__":
             t1.start()
             t2.setDaemon(True)
             t2.start()
+        if re.match(r"^s ", user_input) or re.match(r"^search", user_input):
+            scon = user_input.split(" ")[1]
+            print("searching %s" % (scon))
+            if len(scon) > 0:
+                surl = main_host+"search/video/?s="+scon
+                info_lock.acquire()
+                download_count = download_count+3
+                info_lock.release()
+                t = threading.Thread(target=fetch_url, args=(surl, 0, True, True))
+                t.setDaemon(True)
+                t.start()
+                t1 = threading.Thread(target=fetch_url, args=(surl+"&page=2", 0, True, True))
+                t1.setDaemon(True)
+                t1.start()
+                t2 = threading.Thread(target=fetch_url, args=(surl+"&page=3", 0, True, True))
+                t2.setDaemon(True)
+                t2.start()
         if user_input == 'n' or re.match("^next$", user_input) :
             video_lock.acquire()
             if video_show_idx >= len(video_arr) :
@@ -433,10 +486,12 @@ if __name__ == "__main__":
 
             show_cnt = 0
             while video_show_idx < len(video_sort) and show_cnt < 10 :
-                show_cnt = show_cnt + 1
-                video_show_idx = (video_show_idx + 1) % len(video_sort)
                 vid = video_sort[video_show_idx]
                 print("%s [%s]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+                show_cnt = show_cnt + 1
+                video_show_idx = video_show_idx + 1
+
+            video_show_idx = video_show_idx % len(video_sort)
             video_lock.release()
 
         info_lock.acquire()
