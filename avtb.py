@@ -37,14 +37,13 @@ def sort_rate():
     global video_sort
     video_sort = []
     for vid in video_arr:
-        rate = video_arr[vid]['rate']
-        irate = int(rate.split('%')[0])
+        irate = video_arr[vid]['rate']
         fromidx = 0
-        toidx = len(video_sort)
+        toidx = len(video_sort) - 1
         mid = 0
         while toidx >= 0 and toidx > fromidx:
             mid = int(fromidx + (toidx - fromidx) / 2)
-            crate = int(video_arr[video_sort[mid]]['rate'].split('%')[0])
+            crate = int(video_arr[video_sort[mid]]['rate'])
             if crate > irate:
                 fromidx = mid + 1
             elif crate < irate:
@@ -54,7 +53,10 @@ def sort_rate():
             mid = fromidx
             #print("%d %d %d"%(fromidx, toidx, len(video_sort)))
 
-        video_sort.insert(mid, vid)
+        if mid < len(video_sort) and video_arr[video_sort[mid]]['rate'] > irate:
+            video_sort.insert(mid+1, vid)
+        else:
+            video_sort.insert(mid, vid)
         #print("insert %s/%s to %d" % (rate, vid, mid))
 
 
@@ -204,7 +206,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         # 'Cookie':'JSESSIONID=76782BCA557E307FBC7F29CB08E250FF;tk=VDAxKt94hbSfakQbTHXBgDSCDexK3E0EK7VJsIrwE7Mko1210;route=9036359bb8a8a461c164a04f8f50b252;BIGipServerotn=1290797578.38945.0000;BIGipServerpool_passport=300745226.50215.0000;current_captcha_type=Z;_jc_save_fromStation=%u5E7F%u5DDE%2CGZQ;_jc_save_toStation=%u6DF1%u5733%2CSZQ;_jc_save_fromDate=2017-10-07;_jc_save_toDate=2017-10-03;_jc_save_wfdc_flag=dc'}
 
         # 爬取结果
-        down_ok = 1
+        downrst = ["OK", 1]
         http_ok = False
         retry = 1
         data = ""
@@ -279,11 +281,11 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             found_list = found_list + 1
             video_arr.update({vinfo[1]:{'name':vinfo[2]}})
             for cc in child.find_all("span", class_="video-rating") :
-                video_arr[vinfo[1]].update({'rate':cc.get_text().strip()})
+                video_arr[vinfo[1]].update({'rate':int(cc.get_text().strip().split('%')[0])})
                 break
             if isshow:
                 vid = vinfo[1]
-                print("%s [%s]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+                print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
 
         video_lock.release()
 
@@ -292,7 +294,8 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         
         if found <= 0 and found_list <= 0 :
             print("no resource found for url %s." % (url))
-            down_ok = 0
+            downrst[1] = -1
+            downrst[0] = "no resource found"
 
 
             # 打印爬取网页的各类信息
@@ -300,14 +303,12 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             # print(response.geturl())
             # print(response.info())
             # print(response.getcode())
-    except MyExcept as e:
-        down_ok = 0
-        print("get url %s fail: %s" % (url, e))
     except Exception as e:
-        down_ok = 0
-        print("get url %s fail2: %s" % (url, e))
+        downrst[1] = -1
+        downrst[0] = e
     finally:
-        if down_ok <= 0 and arg_type == 1 :
+        if downrst[1] < 0 and arg_type == 1 :
+            print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
             info_lock.acquire()
             info_arr[info["id"]]["stat"] = -2
             fn = info_arr[info["id"]]["file"]
@@ -345,7 +346,7 @@ if __name__ == "__main__":
                     info_lock.acquire()
                     download_count = download_count+1
                     info_lock.release()
-                    t = threading.Thread(target=fetch_url, args=(uu, 1, True))
+                    t = threading.Thread(target=fetch_url, args=(uu, 1))
                     t.setDaemon(True)
                     # threads[t.getName()] = 1
                     t.start()
@@ -398,7 +399,7 @@ if __name__ == "__main__":
             show_cnt = 0
             while video_show_idx < len(video_sort) and show_cnt < 10 :
                 vid = video_sort[video_show_idx]
-                print("%s [%s]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+                print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
                 show_cnt = show_cnt + 1
                 video_show_idx = video_show_idx + 1
 
