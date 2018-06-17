@@ -158,97 +158,6 @@ def fetch_link(url, idx):
     return [file_name, ret]
 
 
-def down_file(url, id):
-    file_info = url.split('/')
-    file_name = file_info[-1].split('?')[0]
-    file_host = file_info[2]
-    print("downloading %s (%s) ..." % (file_name, file_host))
-
-    file_size_dl = 0
-    file_size = 0
-    fail = 0
-    while fail <= 8:
-        headers = {
-            'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
-            'Host': file_host,
-            }
-        if file_size_dl > 0:
-            headers["Range"] = "bytes=%d-" % (file_size_dl,)
-
-        request = Request(url=url, headers=headers)
-        u = urlopen(request)
-        file_size = int(u.info().get("Content-Length"))
-        # file_size_dl = 0
-
-        if info_arr[id]["stat"] == 0:
-            info_lock.acquire()
-            info_arr[id]["stat"] = 1
-            info_arr[id]["file_size"] = file_size
-            info_lock.release()
-            print("file size: %d" % (file_size,))
-
-        info_lock.acquire()
-        info_arr[id]["file"] = file_name
-        # info_arr[id]["file_size"] = file_size
-        info_arr[id]["file_dl"] = file_size_dl
-        info_lock.release()
-
-        if file_size <= 0:
-            raise MyExcept("down fail: invalid size %d" % (file_size))
-
-        if fail == 0 and os.path.exists(file_name):
-            file_size_dl = -3
-            break
-
-        f = open(file_name, 'wb')
-        f.seek(file_size_dl)
-        block_sz = 64 * 1024
-        cnt = 0
-        while True:
-            try:
-                buffer = u.read(block_sz)
-            except Exception as e:
-                if file_size_dl != file_size:
-                    info_lock.acquire()
-                    info_arr[id]["stat"] = -3
-                    info_lock.release()
-                    fail = fail + 1
-                break
-
-            if not buffer:
-                break
-
-            file_size_dl += len(buffer)
-            f.write(buffer)
-            if cnt % 30 == 0:
-                # print("%s: %d/%d  %.2f%%" % (file_name, file_size_dl, file_size, file_size_dl*100/file_size))
-                info_lock.acquire()
-                info_arr[id]["file_dl"] = file_size_dl
-                info_arr[id]["stat"] = 1
-                info_lock.release()
-
-            cnt = cnt + 1
-
-        f.close()
-        if file_size_dl == file_size:
-            break
-
-    if file_size_dl == file_size:
-        info_lock.acquire()
-        info_arr[id]["file_dl"] = file_size_dl
-        info_arr[id]["stat"] = 2
-        info_lock.release()
-        print("%s: %d ... Done" % (file_name, file_size_dl))
-    elif file_size_dl == -3:
-        info_lock.acquire()
-        info_arr[id]["file_dl"] = file_size
-        info_arr[id]["stat"] = 3
-        info_lock.release()
-        print("%s: %d ... already exists" % (file_name, file_size))
-    else:
-        raise MyExcept("down fail: %d" % (fail))
-
-
 # type=0: list, type=1: download
 def fetch_url(arg, arg_type, isshow=False, use_req=False):
     global info_lock
@@ -309,9 +218,10 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
                     http_ok = True
                 except HTTPError as e:
                     #print("http error: %d, wait: %d, retry: %d" % (e.code, waitSec, retry))
-                    info_lock.acquire()
-                    info_arr[info["id"]]["stat"] = -3
-                    info_lock.release()
+                    if arg_type == 1:
+                        info_lock.acquire()
+                        info_arr[info["id"]]["stat"] = -3
+                        info_lock.release()
                     waitSec = randint(3, 10)
                     sleep(waitSec)
                 finally:
@@ -331,9 +241,10 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
                     request.encoding = 'utf-8'
                     http_ok = True
                 except Exception as e:
-                    info_lock.acquire()
-                    info_arr[info["id"]]["stat"] = -3
-                    info_lock.release()
+                    if arg_type == 1:
+                        info_lock.acquire()
+                        info_arr[info["id"]]["stat"] = -3
+                        info_lock.release()
                     waitSec = randint(3, 10)
                     sleep(waitSec)
                 finally:
