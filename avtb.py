@@ -69,7 +69,7 @@ def fetch_link(url, idx):
     file_size_dl = 0
     file_size = 0
     fail = 0
-    while fail <= 8:
+    while fail <= 3:
         headers = {
             'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
             'Host': file_host,
@@ -87,6 +87,7 @@ def fetch_link(url, idx):
                 info_lock.acquire()
                 info_arr[idx]["stat"] = 1
                 info_arr[idx]["file_size"] = file_size
+                info_arr[idx]["retry"] = 0
                 info_lock.release()
                 print("file size: %d" % (file_size,))
 
@@ -112,10 +113,11 @@ def fetch_link(url, idx):
                 buffer = u.read(block_sz)
             except Exception as e:
                 if idx >= 0 and file_size_dl != file_size:
+                    fail = fail + 1
                     info_lock.acquire()
                     info_arr[idx]["stat"] = -3
+                    info_arr[idx]["retry"] = fail
                     info_lock.release()
-                    fail = fail + 1
                 break
 
             if not buffer:
@@ -189,6 +191,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
     info["file_size"] = -1
     info["file_dl"] = 0
     info["host"] = h
+    info["retry"] = 0
 
     if arg_type == 1:
         info_lock.acquire()
@@ -214,7 +217,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         if use_req == False:
             request = Request(url=url, headers=headers)
 
-            while not http_ok and retry <= 10:
+            while not http_ok and retry < 10:
                 try:
                     response = urlopen(request)
                     http_ok = True
@@ -223,20 +226,21 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
                     if arg_type == 1:
                         info_lock.acquire()
                         info_arr[info["id"]]["stat"] = -3
+                        info_arr[info["id"]]["retry"] = retry
                         info_lock.release()
                     waitSec = randint(3, 10)
                     sleep(waitSec)
                 finally:
                     retry = retry + 1
 
-            if retry > 10:
+            if retry >= 10:
                 raise MyExcept("http retry fail")
 
             # 设置解码方式
             data = response.read()
             data = data.decode('utf-8', errors='ignore')
         else:
-            while not http_ok and retry <= 10:
+            while not http_ok and retry < 10:
                 try:
                     request = requests.get(url=url, headers=headers)
                     request.raise_for_status()
@@ -246,17 +250,17 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
                     if arg_type == 1:
                         info_lock.acquire()
                         info_arr[info["id"]]["stat"] = -3
+                        info_arr[info["id"]]["retry"] = retry
                         info_lock.release()
                     waitSec = randint(3, 10)
                     sleep(waitSec)
                 finally:
                     retry = retry + 1
 
-            if retry > 10:
+            if retry >= 10:
                 raise MyExcept("http retry fail")
             
             data = request.text
-
 
         # 打印结果
         soup = BeautifulSoup(data, "lxml")
@@ -313,7 +317,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             info_arr[info["id"]]["stat"] = -2
             fn = info_arr[info["id"]]["file"]
             info_lock.release()
-            if re.match(r"\.", fn):
+            if re.match(r".", fn):
                 os.remove(fn)
                 print("remove file: %s ..." % (fn))
 
@@ -403,7 +407,8 @@ if __name__ == "__main__":
                 show_cnt = show_cnt + 1
                 video_show_idx = video_show_idx + 1
 
-            video_show_idx = video_show_idx % len(video_sort)
+            if show_cnt > 0:
+                video_show_idx = video_show_idx % len(video_sort)
             video_lock.release()
 
         info_lock.acquire()
@@ -416,7 +421,7 @@ if __name__ == "__main__":
             elif info["stat"] == -2:
                 tail = "Fail"
             elif info["stat"] == -3:
-                tail = "%s Retry .." % (tail)
+                tail = "%s Retry ... %d" % (tail, info["retry"])
 
             print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
         info_lock.release()
