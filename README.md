@@ -18,3 +18,6 @@ if __name__ == '__main__':
 * 2018-06-17 v2.3
 > 1. support seaching
 > 2. modify some bugs
+
+* 2018-06-19 v2.4
+> 1. modify some miner bugs
