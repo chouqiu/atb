@@ -111,6 +111,8 @@ def fetch_link(url, idx):
         while True:
             try:
                 buffer = u.read(block_sz)
+                if not buffer:
+                    raise MyExcept("read buff invalid")
             except Exception as e:
                 if idx >= 0 and file_size_dl != file_size:
                     fail = fail + 1
@@ -118,9 +120,6 @@ def fetch_link(url, idx):
                     info_arr[idx]["stat"] = -3
                     info_arr[idx]["retry"] = fail
                     info_lock.release()
-                break
-
-            if not buffer:
                 break
 
             file_size_dl += len(buffer)

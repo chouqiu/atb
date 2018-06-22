@@ -21,3 +21,6 @@ if __name__ == '__main__':
 
 * 2018-06-19 v2.4
 > 1. modify some miner bugs
+
+* 2018-06-22 v2.5
+> 1. modify some miner bugs
