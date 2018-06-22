@@ -69,7 +69,7 @@ def fetch_link(url, idx):
     file_size_dl = 0
     file_size = 0
     fail = 0
-    while fail <= 3:
+    while fail <= 5:
         headers = {
             'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
             'Host': file_host,
