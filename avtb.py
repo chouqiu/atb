@@ -26,7 +26,8 @@ video_lock = threading.Lock()
 video_arr = {}
 video_sort = []
 video_show_idx = 0
-main_host="http://www.999avtb.com/"
+#main_host="http://www.999avtb.com/"
+main_host="http://www.avtba.com/"
 
 class MyExcept(Exception):
     pass
@@ -76,6 +77,7 @@ def fetch_link(url, idx):
         }
         if file_size_dl > 0:
             headers["Range"] = "bytes=%d-" % (file_size_dl,)
+            print("continue downloading %s from %d ... " % (file_name, file_size_dl))
 
         request = Request(url=url, headers=headers)
         u = urlopen(request)
@@ -104,8 +106,8 @@ def fetch_link(url, idx):
             file_size_dl = -3
             break
 
-        f = open(file_name, 'wb')
-        f.seek(file_size_dl)
+        f = open(file_name, 'ab+')
+        #f.seek(file_size_dl)
         block_sz = 256 * 1024
         cnt = 0
         while True:
@@ -132,6 +134,10 @@ def fetch_link(url, idx):
                 info_lock.release()
 
             cnt = cnt + 1
+
+            if file_size_dl >= file_size:
+                file_size_dl = file_size
+                break
 
         f.close()
         if file_size_dl == file_size:
