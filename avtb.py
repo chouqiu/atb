@@ -81,8 +81,13 @@ def fetch_link(url, idx):
 
         request = Request(url=url, headers=headers)
         u = urlopen(request)
-        file_size = int(u.info().get("Content-Length"))
         # file_size_dl = 0
+
+        if fail == 0:
+            if os.path.exists(file_name):
+                file_size_dl = -3
+                break
+            file_size = int(u.info().get("Content-Length"))
 
         if idx >= 0:
             if info_arr[idx]["stat"] == 0:
@@ -101,10 +106,6 @@ def fetch_link(url, idx):
 
         if file_size <= 0:
             raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
-
-        if fail == 0 and os.path.exists(file_name):
-            file_size_dl = -3
-            break
 
         f = open(file_name, 'ab+')
         #f.seek(file_size_dl)
@@ -136,6 +137,7 @@ def fetch_link(url, idx):
             cnt = cnt + 1
 
             if file_size_dl >= file_size:
+                print("%s download size bias: %d" % (file_name, file_size_dl-file_size))
                 file_size_dl = file_size
                 break
 
