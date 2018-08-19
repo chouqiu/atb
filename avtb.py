@@ -368,7 +368,7 @@ def run_download(argu, is_page=False):
     if is_page:
         t = threading.Thread(target=check_queue, args=(argu, 0, True, True))
     else:
-        t = threading.Thread(target=check_queue, args=(argu, 1))
+        t = threading.Thread(target=check_queue, args=(argu, 1, False, False))
     t.setDaemon(True)
     # threads[t.getName()] = 1
     t.start()
@@ -456,7 +456,10 @@ if __name__ == "__main__":
             qlen = len(task_queue)
             print("total %d task in queue" % (qlen))
             for i in range(0, qlen):
-                print("%s - %s" % (task_queue[i], video_arr[task_queue[i]]['name']))
+                vname = "invalid"
+                if task_queue[i] in video_arr.keys():
+                    vname = video_arr[task_queue[i]]['name']
+                print("%s - %s" % (task_queue[i], vname))
             task_lock.release()
 
         info_lock.acquire()
