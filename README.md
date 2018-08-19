@@ -30,3 +30,8 @@ if __name__ == '__main__':
 
 * 2018-07-04 v2.7
 > 1. modify some minor bugs...
+
+* 2018-08-19 v2.8
+> 1. add task queue
+> 2. you can set concurrency using 'setc'
+> 3. modify some minor bugs...

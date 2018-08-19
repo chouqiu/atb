@@ -26,8 +26,13 @@ video_lock = threading.Lock()
 video_arr = {}
 video_sort = []
 video_show_idx = 0
+task_lock = threading.Lock()
+task_queue = []
+task_currency = 1
+max_page = 5
+
 #main_host="http://www.999avtb.com/"
-main_host="http://www.avtba.com/"
+main_host="http://www.avtbd.com/"
 
 class MyExcept(Exception):
     pass
@@ -136,7 +141,7 @@ def fetch_link(url, idx):
 
             cnt = cnt + 1
 
-            if file_size_dl >= file_size:
+            if file_size_dl > file_size:
                 print("%s download size bias: %d" % (file_name, file_size_dl-file_size))
                 file_size_dl = file_size
                 break
@@ -173,7 +178,6 @@ def fetch_link(url, idx):
 def fetch_url(arg, arg_type, isshow=False, use_req=False):
     global info_lock
     global info_arr
-    global download_count
     global video_arr
     global video_lock
     # 网址
@@ -297,7 +301,6 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             if isshow:
                 vid = vinfo[1]
                 print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
-
         video_lock.release()
 
         if found_list > 0 :
@@ -328,12 +331,51 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
                 os.remove(fn)
                 print("remove file: %s ..." % (fn))
 
+
+def check_queue(arg, arg_type, isshow=False, use_req=False):
+    global info_lock
+    global download_count
+
+    is_check_queue = True
+    while is_check_queue:
+        fetch_url(arg, arg_type, isshow, use_req)
+        if arg_type == 0:
+            break
+        task_lock.acquire()
+        if len(task_queue) > 0:
+            arg = make_url(task_queue.pop())
+            print("start %s in queue, left %d" % (arg, len(task_queue)))
+        else :
+            print("no task in queue")
+            is_check_queue = False
+        task_lock.release()
+
     info_lock.acquire()
     if download_count > 0 :
         download_count = download_count - 1
     else :
         print("thread running but counter invalid: %d" % (download_count))
     info_lock.release()
+
+
+def run_download(argu, is_page=False):
+    global info_lock
+    global download_count
+
+    info_lock.acquire()
+    download_count = download_count+1
+    info_lock.release()
+    if is_page:
+        t = threading.Thread(target=check_queue, args=(argu, 0, True, True))
+    else:
+        t = threading.Thread(target=check_queue, args=(argu, 1))
+    t.setDaemon(True)
+    # threads[t.getName()] = 1
+    t.start()
+
+
+def make_url(vid):
+    return main_host + vid
 
 
 if __name__ == "__main__":
@@ -344,23 +386,18 @@ if __name__ == "__main__":
         if user_input == "exit" or user_input == "quit":
             print("current threads %d, exiting ..." % (download_count))
             break
-        if len(user_input) > 2 :
+        if re.match(r"^[0-9]+$", user_input) :
+            uu = make_url(user_input)
             # print(user_input)
-            if download_count >= 10:
-                print("current %d threads running ,please wait..." % (download_count))
+            if download_count >= task_currency :
+                task_lock.acquire()
+                #task_queue.append(uu)
+                task_queue.append(user_input)
+                print("current %d threads running, put in queue %d..." % (download_count, len(task_queue)))
+                task_lock.release()
                 continue
             else:
-                uu = user_input
-                if re.match(r"^[0-9]+$", user_input) :
-                    uu = main_host + user_input
-                if re.match(r"^http", uu) :
-                    info_lock.acquire()
-                    download_count = download_count+1
-                    info_lock.release()
-                    t = threading.Thread(target=fetch_url, args=(uu, 1))
-                    t.setDaemon(True)
-                    # threads[t.getName()] = 1
-                    t.start()
+                run_download(uu)
         if user_input == 'l' or re.match(r"^list$", user_input) :
             print("fetch list ...")
             video_lock.acquire()
@@ -368,38 +405,23 @@ if __name__ == "__main__":
             video_show_idx = 0
             video_sort = []
             video_lock.release()
-            info_lock.acquire()
-            download_count = download_count+3
-            info_lock.release()
-            t = threading.Thread(target=fetch_url, args=(main_host, 0))
-            t1 = threading.Thread(target=fetch_url, args=(main_host+"recent/2/", 0))
-            t2 = threading.Thread(target=fetch_url, args=(main_host+"recent/3/", 0))
-            t.setDaemon(True)
-            t.start()
-            t1.setDaemon(True)
-            t1.start()
-            t2.setDaemon(True)
-            t2.start()
+            run_download(main_host, True)
+            for i in range(2, max_page+1):
+                run_download(main_host+"recent/%d/"%(i), True)
         if re.match(r"^s ", user_input) or re.match(r"^search", user_input):
             scon = user_input.split(" ")[1]
             print("searching %s" % (scon))
             if len(scon) > 0:
                 surl = main_host+"search/video/?s="+scon
-                info_lock.acquire()
-                download_count = download_count+3
-                info_lock.release()
-                t = threading.Thread(target=fetch_url, args=(surl, 0, True, True))
-                t.setDaemon(True)
-                t.start()
-                t1 = threading.Thread(target=fetch_url, args=(surl+"&page=2", 0, True, True))
-                t1.setDaemon(True)
-                t1.start()
-                t2 = threading.Thread(target=fetch_url, args=(surl+"&page=3", 0, True, True))
-                t2.setDaemon(True)
-                t2.start()
-        if user_input == 'n' or re.match("^next$", user_input) :
+                run_download(surl, True)
+                for i in range(2, max_page+1):
+                    run_download(surl+"&page=%d"%(i), True)
+        if user_input == 'n' or user_input == 'rn' or re.match("^next$", user_input) or re.match("^renext$", user_input) :
+            do_next = 1
+            if user_input == 'rn' or re.match("^renext$", user_input) :
+                do_next = 0
             video_lock.acquire()
-            if video_show_idx >= len(video_arr) :
+            if video_show_idx >= len(video_arr) or do_next == 0 :
                 video_show_idx = 0
             print("show list from %d/%d" % (video_show_idx, len(video_arr)))
 
@@ -417,6 +439,25 @@ if __name__ == "__main__":
             if show_cnt > 0:
                 video_show_idx = video_show_idx % len(video_sort)
             video_lock.release()
+        if re.match(r"^setc ", user_input):
+            new_sc = int(user_input.split(" ")[1])
+            print("set currency: %d" % (new_sc))
+            task_currency = new_sc
+            left = task_currency - download_count
+            if left > 0:
+                for i in range(0, left):
+                    task_lock.acquire()
+                    uu = task_queue.pop()
+                    print("ready to start queue %d - %s" % (len(task_queue), uu))
+                    task_lock.release()
+                    run_download(make_url(uu))
+        if re.match(r"^queue$", user_input) or user_input == "q":
+            task_lock.acquire()
+            qlen = len(task_queue)
+            print("total %d task in queue" % (qlen))
+            for i in range(0, qlen):
+                print("%s - %s" % (task_queue[i], video_arr[task_queue[i]]['name']))
+            task_lock.release()
 
         info_lock.acquire()
         for info in info_arr:
