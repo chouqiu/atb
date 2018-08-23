@@ -35,3 +35,6 @@ if __name__ == '__main__':
 > 1. add task queue
 > 2. you can set concurrency using 'setc'
 > 3. modify some minor bugs...
+
+* 2018-08-23 v2.9
+> 1. support code 301..

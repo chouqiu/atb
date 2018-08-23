@@ -32,7 +32,7 @@ task_currency = 1
 max_page = 5
 
 #main_host="http://www.999avtb.com/"
-main_host="http://www.avtbd.com/"
+main_host="http://www.avtbe.com/"
 
 class MyExcept(Exception):
     pass
@@ -368,14 +368,18 @@ def run_download(argu, is_page=False):
     if is_page:
         t = threading.Thread(target=check_queue, args=(argu, 0, True, True))
     else:
-        t = threading.Thread(target=check_queue, args=(argu, 1, False, False))
+        t = threading.Thread(target=check_queue, args=(argu, 1, False, True))
     t.setDaemon(True)
     # threads[t.getName()] = 1
     t.start()
 
 
 def make_url(vid):
-    return main_host + vid
+    global video_arr
+    
+    if vid in video_arr.keys():
+        return main_host + vid + "/" + video_arr[vid]['name'] + "/"
+    return main_host + vid + "/"
 
 
 if __name__ == "__main__":
