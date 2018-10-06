@@ -38,3 +38,6 @@ if __name__ == '__main__':
 
 * 2018-08-23 v2.9
 > 1. support code 301..
+
+* 2018-10-06 v3.0
+> 1. add help menu

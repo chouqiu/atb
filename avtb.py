@@ -32,7 +32,7 @@ task_currency = 1
 max_page = 5
 
 #main_host="http://www.999avtb.com/"
-main_host="http://www.avtbe.com/"
+main_host="http://www.avtbg.com/"
 
 class MyExcept(Exception):
     pass
@@ -465,7 +465,17 @@ if __name__ == "__main__":
                     vname = video_arr[task_queue[i]]['name']
                 print("%s - %s" % (task_queue[i], vname))
             task_lock.release()
+        if re.match(r"^help$", user_input) or user_input == "h":
+            print("--- HELP MENU ---")
+            print("%s --- %s" % ("setc <currency number>", "set currency for downloading"))
+            print("%s --- %s" % ("queue or q", "show current tasks in queue"))
+            print("%s --- %s" % ("n and rn", "show next 10 videos in the list, rn means reset index to 0"))
+            print("%s --- %s" % ("search or s <keyword>", "search for keyword"))
+            print("%s --- %s" % ("list or l", "get new list"))
+            print("%s --- %s" % ("quit or exit", "exit console"))
+            print("%s --- %s" % ("video id", "add video to downloading queue"))
 
+        print("------")
         info_lock.acquire()
         for info in info_arr:
             tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
