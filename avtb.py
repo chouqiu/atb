@@ -32,7 +32,8 @@ task_currency = 1
 max_page = 5
 
 #main_host="http://www.999avtb.com/"
-main_host="http://www.avtbg.com/"
+main_host="http://www.avtbh.com/"
+host_list=["http://www.avtbm.com", "https://www.ppp251.com"]
 
 class MyExcept(Exception):
     pass
@@ -465,6 +466,25 @@ if __name__ == "__main__":
                     vname = video_arr[task_queue[i]]['name']
                 print("%s - %s" % (task_queue[i], vname))
             task_lock.release()
+
+        if re.match(r"^showh$", user_input):
+            hlen = len(host_list)
+            print("total host: %d" % hlen)
+            for i in range(0, hlen):
+                print("%s - %s" % (i, host_list[i]))
+            print("-------------------")
+            print("current main: %s" % main_host)
+
+        if re.match(r"^seth ", user_input):
+            hlen = len(host_list)
+            hid = int(user_input.split(" ")[1])
+            print("current host %s" % main_host)
+            if hid >= 0 and hid < hlen:
+                main_host = host_list[hid]
+                print("new host %s" % main_host)
+            else:
+                print("invalid host id: %d" % hid)
+        
         if re.match(r"^help$", user_input) or user_input == "h":
             print("--- HELP MENU ---")
             print("%s --- %s" % ("setc <currency number>", "set currency for downloading"))
@@ -474,6 +494,8 @@ if __name__ == "__main__":
             print("%s --- %s" % ("list or l", "get new list"))
             print("%s --- %s" % ("quit or exit", "exit console"))
             print("%s --- %s" % ("video id", "add video to downloading queue"))
+            print("%s --- %s" % ("seth <id>", "set current video host"))
+            print("%s --- %s" % ("showh", "show video host"))
 
         print("------")
         info_lock.acquire()
