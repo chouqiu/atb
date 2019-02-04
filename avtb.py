@@ -2,42 +2,19 @@
 
 import re
 import os
-import socket
-import threading
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from urllib.request import *
 from urllib.error import *
-from urllib import parse
+#from urllib import parse
 from time import *
 from random import *
-import ssl
 import requests
 # import json
 from bs4 import BeautifulSoup
-
-ssl._create_default_https_context = ssl._create_unverified_context
-socket.setdefaulttimeout(60)
-info_lock = threading.Lock()
-info_arr = []
-download_count = 0
-video_lock = threading.Lock()
-video_arr = {}
-video_sort = []
-video_show_idx = 0
-task_lock = threading.Lock()
-task_queue = []
-task_currency = 1
-max_page = 5
-
-#main_host="http://www.999avtb.com/"
-main_host="http://www.avtbh.com/"
-host_list=["http://www.avtbm.com", "https://www.ppp251.com"]
-
-class MyExcept(Exception):
-    pass
-
+from avtb_global import *
+import sock
 
 def sort_rate():
     global video_arr
@@ -113,7 +90,7 @@ def fetch_link(url, idx):
         if file_size <= 0:
             raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
 
-        f = open(file_name, 'ab+')
+        f = open(store_path+'/'+file_name, 'ab+')
         #f.seek(file_size_dl)
         block_sz = 256 * 1024
         cnt = 0
@@ -212,67 +189,23 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         info_lock.release()
 
     try:
-        # url = "http://www.avtb004.com/4048/"
-        headers = {
-            'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
-            'Host': h}
-        # 'Accept':'text/html, application/xhtml+xml, image/jxr, */*',
-        # 'Accept-Encoding':'gzip, deflate, br',
-        # 'Cookie':'JSESSIONID=76782BCA557E307FBC7F29CB08E250FF;tk=VDAxKt94hbSfakQbTHXBgDSCDexK3E0EK7VJsIrwE7Mko1210;route=9036359bb8a8a461c164a04f8f50b252;BIGipServerotn=1290797578.38945.0000;BIGipServerpool_passport=300745226.50215.0000;current_captcha_type=Z;_jc_save_fromStation=%u5E7F%u5DDE%2CGZQ;_jc_save_toStation=%u6DF1%u5733%2CSZQ;_jc_save_fromDate=2017-10-07;_jc_save_toDate=2017-10-03;_jc_save_wfdc_flag=dc'}
-
         # 爬取结果
         downrst = ["OK", 1]
-        http_ok = False
-        retry = 1
         data = ""
+        get_host = urlitems[2]
+        get_path = '/'.join(urlitems[3:len(urlitems)])
+        if len(get_path) == 0:
+            get_path = '/'
+        else:
+            get_path = '/' + get_path
+
         # 请求
         if use_req == False:
-            request = Request(url=url, headers=headers)
-
-            while not http_ok and retry < 10:
-                try:
-                    response = urlopen(request)
-                    http_ok = True
-                except HTTPError as e:
-                    #print("http error: %d, wait: %d, retry: %d" % (e.code, waitSec, retry))
-                    if arg_type == 1:
-                        info_lock.acquire()
-                        info_arr[info["id"]]["stat"] = -3
-                        info_arr[info["id"]]["retry"] = retry
-                        info_lock.release()
-                    waitSec = randint(3, 10)
-                    sleep(waitSec)
-                finally:
-                    retry = retry + 1
-
-            if retry >= 10:
-                raise MyExcept("http retry fail")
-
-            # 设置解码方式
-            data = response.read()
-            data = data.decode('utf-8', errors='ignore')
+            data = sock.request_get(get_host, get_path)
         else:
-            while not http_ok and retry < 10:
-                try:
-                    request = requests.get(url=url, headers=headers)
-                    request.raise_for_status()
-                    request.encoding = 'utf-8'
-                    http_ok = True
-                except Exception as e:
-                    if arg_type == 1:
-                        info_lock.acquire()
-                        info_arr[info["id"]]["stat"] = -3
-                        info_arr[info["id"]]["retry"] = retry
-                        info_lock.release()
-                    waitSec = randint(3, 10)
-                    sleep(waitSec)
-                finally:
-                    retry = retry + 1
+            data = sock.http_get(get_host, get_path, debug=0)
 
-            if retry >= 10:
-                raise MyExcept("http retry fail")
-            
-            data = request.text
+        print("get data len: %d" % (len(data)))
 
         # 打印结果
         soup = BeautifulSoup(data, "lxml")
@@ -290,18 +223,27 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         found_list = 0
         print("")
         video_lock.acquire()
-        for child in soup.find_all("a", class_="thumbnail") :
-            vinfo = child['href'].split('/')
-            #if len(vinfo) < 3 :
-            #    break
-            found_list = found_list + 1
-            video_arr.update({vinfo[1]:{'name':vinfo[2]}})
-            for cc in child.find_all("span", class_="video-rating") :
-                video_arr[vinfo[1]].update({'rate':int(cc.get_text().strip().split('%')[0])})
-                break
-            if isshow:
+        try:
+            for child in soup.find_all("a", class_="thumbnail") :
+                vinfo = child['href'].split('/')
                 vid = vinfo[1]
-                print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+                #if len(vinfo) < 3 :
+                #    break
+                found_list = found_list + 1
+                video_arr.update({vid:{'name':vinfo[2], 'rate':0}})
+                for cc in child.find_all("span", class_="video-rating") :
+                    #video_arr[vid].update({'rate':int(cc.get_text().strip().split('%')[0])})
+                    video_arr[vid].update({'rate':int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])})
+                    break
+                if isshow:
+                    if 'rate' not in video_arr[vid].keys() or 'name' not in video_arr[vid].keys():
+                        video_arr[vid].update({'rate':0})
+                        video_arr[vid].update({'name':"NULL"})
+                        print("%s invalid" % (vid))
+                    else:
+                        print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+        except Exception as e:
+            print("parse url %s fail: %s" % (arg, e))
         video_lock.release()
 
         if found_list > 0 :
@@ -321,6 +263,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
     except Exception as e:
         downrst[1] = -1
         downrst[0] = e
+        print("%s: %s fetch fail, %s" % (__name__, arg, e))
     finally:
         if downrst[1] < 0 and arg_type == 1 :
             print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
@@ -451,11 +394,14 @@ if __name__ == "__main__":
             left = task_currency - download_count
             if left > 0:
                 for i in range(0, left):
+                    uu = ""
                     task_lock.acquire()
-                    uu = task_queue.pop()
-                    print("ready to start queue %d - %s" % (len(task_queue), uu))
+                    if len(task_queue) > 0:
+                        uu = task_queue.pop()
+                        print("ready to start queue %d - %s" % (len(task_queue), uu))
                     task_lock.release()
-                    run_download(make_url(uu))
+                    if uu != "":
+                        run_download(make_url(uu))
         if re.match(r"^queue$", user_input) or user_input == "q":
             task_lock.acquire()
             qlen = len(task_queue)
@@ -484,6 +430,14 @@ if __name__ == "__main__":
                 print("new host %s" % main_host)
             else:
                 print("invalid host id: %d" % hid)
+
+        if re.match(r"^setsp ", user_input):
+            nsp = user_input.split(" ")[1]
+            store_path = nsp
+            print("current store path: %s" % (store_path))
+
+        if re.match(r"^showsp", user_input):
+            print("current store path: %s" % (store_path))
         
         if re.match(r"^help$", user_input) or user_input == "h":
             print("--- HELP MENU ---")
@@ -496,6 +450,8 @@ if __name__ == "__main__":
             print("%s --- %s" % ("video id", "add video to downloading queue"))
             print("%s --- %s" % ("seth <id>", "set current video host"))
             print("%s --- %s" % ("showh", "show video host"))
+            print("%s --- %s" % ("setsp <store path>", "set current video store path"))
+            print("%s --- %s" % ("showsp", "show video store path"))
 
         print("------")
         info_lock.acquire()

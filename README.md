@@ -41,3 +41,6 @@ if __name__ == '__main__':
 
 * 2018-10-06 v3.0
 > 1. add help menu
+
+* 2019-02-04 v3.1
+> 1. support store path, and socket access...
