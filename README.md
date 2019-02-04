@@ -7,6 +7,19 @@
 
 when update pip to 10.0, there's an error: "cannot import name main". You can solve this in two ways:
 1. modify /usr/bin/pip3
+
+### some comment
+1. update pip: pip install --upgrade pip.
+2. sometimes install lxml may fail, check if libxml and libxml-dev is installed.
+
+### about github
+You can do the following:
+1. git init
+2. git add README.md
+3. git commit -m 'readme'
+4. git remote add origin https://github.com/chouqiu/atb.git
+5. git push -u origin master
+
 ```
 from pip import __main__  
 if __name__ == '__main__':  
