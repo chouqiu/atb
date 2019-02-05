@@ -14,7 +14,7 @@ video_show_idx = 0
 task_lock = threading.Lock()
 task_queue = []
 task_currency = 1
-max_page = 5
+max_page = 10
 
 #main_host="http://www.999avtb.com/"
 main_host="http://www.avtbq.com/"

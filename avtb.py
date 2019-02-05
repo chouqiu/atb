@@ -454,19 +454,21 @@ if __name__ == "__main__":
             print("%s --- %s" % ("showsp", "show video store path"))
 
         print("------")
-        info_lock.acquire()
-        for info in info_arr:
-            tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
-            if info["stat"] == 2:
-                tail = "Done"
-            elif info["stat"] == 3:
-                tail = "Exists"
-            elif info["stat"] == -2:
-                tail = "Fail"
-            elif info["stat"] == -3:
-                tail = "%s Retry ... %d" % (tail, info["retry"])
 
-            print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
-        info_lock.release()
+        if user_input == "":
+            info_lock.acquire()
+            for info in info_arr:
+                tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
+                if info["stat"] == 2:
+                    tail = "Done"
+                elif info["stat"] == 3:
+                    tail = "Exists"
+                elif info["stat"] == -2:
+                    tail = "Fail"
+                elif info["stat"] == -3:
+                    tail = "%s Retry ... %d" % (tail, info["retry"])
+
+                print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
+            info_lock.release()
 
         print("current threads: %d" % (download_count))
