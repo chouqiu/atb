@@ -271,8 +271,8 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             info_arr[info["id"]]["stat"] = -2
             fn = info_arr[info["id"]]["file"]
             info_lock.release()
-            if re.match(r".", fn) and os.path.exists(fn):
-                os.remove(fn)
+            if re.match(r".", fn) and os.path.exists(store_path+'/'+fn):
+                s.remove(fn)
                 print("remove file: %s ..." % (fn))
 
 
