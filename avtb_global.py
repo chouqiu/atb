@@ -22,6 +22,21 @@ host_list=["http://www.avtbm.com", "https://www.ppp251.com"]
 
 store_path='.'
 
+def format_str(str):
+    return re.sub(r"[ \t\r\n]+", "", str)
+
+def get_fullpath(fname):
+    global store_path
+    return store_path+'/'+fname
+
+def get_store():
+    global store_path
+    return store_path
+
+def set_store(path):
+    global store_path
+    store_path = path
+
 class MyExcept(Exception):
     pass
 

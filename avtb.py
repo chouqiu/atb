@@ -67,7 +67,7 @@ def fetch_link(url, idx):
         # file_size_dl = 0
 
         if fail == 0:
-            if os.path.exists(file_name):
+            if os.path.exists(get_fullpath(file_name)):
                 file_size_dl = -3
                 break
             file_size = int(u.info().get("Content-Length"))
@@ -90,7 +90,7 @@ def fetch_link(url, idx):
         if file_size <= 0:
             raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
 
-        f = open(store_path+'/'+file_name, 'ab+')
+        f = open(get_fullpath(file_name), 'ab+')
         #f.seek(file_size_dl)
         block_sz = 256 * 1024
         cnt = 0
@@ -214,6 +214,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         # 抓取视频链接
         for child in soup.find_all("source", label="360p"):
             found = found + 1
+            vsrc = format_str(child["src"])
             print(child["src"])
             downrst = fetch_link(child["src"], info["id"])
             if isshow:
@@ -227,10 +228,11 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             for child in soup.find_all("a", class_="thumbnail") :
                 vinfo = child['href'].split('/')
                 vid = vinfo[1]
+                vname = format_str(vinfo[2])
                 #if len(vinfo) < 3 :
                 #    break
                 found_list = found_list + 1
-                video_arr.update({vid:{'name':vinfo[2], 'rate':0}})
+                video_arr.update({vid:{'name':vname, 'rate':0}})
                 for cc in child.find_all("span", class_="video-rating") :
                     #video_arr[vid].update({'rate':int(cc.get_text().strip().split('%')[0])})
                     video_arr[vid].update({'rate':int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])})
@@ -271,8 +273,8 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             info_arr[info["id"]]["stat"] = -2
             fn = info_arr[info["id"]]["file"]
             info_lock.release()
-            if re.match(r".", fn) and os.path.exists(store_path+'/'+fn):
-                s.remove(fn)
+            if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
+                os.remove(get_fullpath(fn))
                 print("remove file: %s ..." % (fn))
 
 
@@ -403,6 +405,21 @@ if __name__ == "__main__":
                     if uu != "":
                         run_download(make_url(uu))
         if re.match(r"^queue$", user_input) or user_input == "q":
+            info_lock.acquire()
+            for info in info_arr:
+                tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
+                if info["stat"] == 2:
+                    tail = "Done"
+                elif info["stat"] == 3:
+                    tail = "Exists"
+                elif info["stat"] == -2:
+                    tail = "Fail"
+                elif info["stat"] == -3:
+                    tail = "%s Retry ... %d" % (tail, info["retry"])
+
+                print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
+            info_lock.release()
+            print("-------------------")
             task_lock.acquire()
             qlen = len(task_queue)
             print("total %d task in queue" % (qlen))
@@ -433,11 +450,11 @@ if __name__ == "__main__":
 
         if re.match(r"^setsp ", user_input):
             nsp = user_input.split(" ")[1]
-            store_path = nsp
-            print("current store path: %s" % (store_path))
+            set_store(nsp)
+            print("current store path: %s" % (get_store()))
 
         if re.match(r"^showsp", user_input):
-            print("current store path: %s" % (store_path))
+            print("current store path: %s" % (get_store()))
         
         if re.match(r"^help$", user_input) or user_input == "h":
             print("--- HELP MENU ---")
@@ -455,20 +472,6 @@ if __name__ == "__main__":
 
         print("------")
 
-        if user_input == "":
-            info_lock.acquire()
-            for info in info_arr:
-                tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
-                if info["stat"] == 2:
-                    tail = "Done"
-                elif info["stat"] == 3:
-                    tail = "Exists"
-                elif info["stat"] == -2:
-                    tail = "Fail"
-                elif info["stat"] == -3:
-                    tail = "%s Retry ... %d" % (tail, info["retry"])
-
-                print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
-            info_lock.release()
+        #if user_input == "":
 
         print("current threads: %d" % (download_count))

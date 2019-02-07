@@ -57,3 +57,6 @@ if __name__ == '__main__':
 
 * 2019-02-04 v3.1
 > 1. support store path, and socket access...
+
+* 2019-02-07 v3.2
+> 1. some bugs...
