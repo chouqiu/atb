@@ -1,3 +1,4 @@
+import re
 import ssl
 import threading
 import socket
@@ -17,10 +18,13 @@ task_currency = 1
 max_page = 10
 
 #main_host="http://www.999avtb.com/"
-main_host="http://www.avtbq.com/"
-host_list=["http://www.avtbm.com", "https://www.ppp251.com"]
+main_host="http://www.avtbr.com/"
+host_list=["http://www.avtbr.com", "https://www.ppp251.com"]
 
 store_path='.'
+
+def get_url(cgi):
+    return main_host + "/" + cgi;
 
 def format_str(str):
     return re.sub(r"[ \t\r\n]+", "", str)

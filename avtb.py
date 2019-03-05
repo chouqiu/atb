@@ -324,8 +324,8 @@ def make_url(vid):
     global video_arr
     
     if vid in video_arr.keys():
-        return main_host + vid + "/" + video_arr[vid]['name'] + "/"
-    return main_host + vid + "/"
+        return get_url(vid+"/"+video_arr[vid]['name']+"/")
+    return get_url(vid+"/")
 
 
 if __name__ == "__main__":
@@ -357,12 +357,12 @@ if __name__ == "__main__":
             video_lock.release()
             run_download(main_host, True)
             for i in range(2, max_page+1):
-                run_download(main_host+"recent/%d/"%(i), True)
+                run_download(get_url("recent/%d/"%(i)), True)
         if re.match(r"^s ", user_input) or re.match(r"^search", user_input):
             scon = user_input.split(" ")[1]
             print("searching %s" % (scon))
             if len(scon) > 0:
-                surl = main_host+"search/video/?s="+scon
+                surl = get_url("search/video/?s="+scon)
                 run_download(surl, True)
                 for i in range(2, max_page+1):
                     run_download(surl+"&page=%d"%(i), True)
