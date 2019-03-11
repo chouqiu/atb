@@ -95,6 +95,10 @@ def http_get(host, path, debug=0):
     if debug > 0 :
         print("send ret: %d" % (ret))
 
+    # HTTP/1.1 301 Moved Permanently
+    # X-Powered-By: Express
+    # Location: http://www.avtbt.com//recent/9/
+    mod301 = re.compile(r"HTTP/1\.1 30[0-9] .*Location: (http.*?)[\r\n]", re.S)
     msg = ""
     while True:
         try:
@@ -107,11 +111,16 @@ def http_get(host, path, debug=0):
             last = msg[len(msg)-10:len(msg)]
             if last == "   \r\n0\r\n\r\n" :
                 break
+            newurl = mod301.findall(msg)
+            if newurl :
+                print("get new jump url:%s" % (newurl[0]))
+                break
+                
+            if debug > 0 :
+                print(msg)
+                break
         except OSError:
             pass
-
-    if debug > 0 :
-        print(msg)
 
     tcpSock.close()
     return msg
