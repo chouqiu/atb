@@ -63,3 +63,7 @@ if __name__ == '__main__':
 
 * 2019-03-05 v3.3
 > 1. some bugs...
+
+* 2019-03-18 v3.4
+> 1. rebuild the code
+> 2. support detect 301/302 jump

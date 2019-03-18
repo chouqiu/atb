@@ -1,7 +1,11 @@
 import requests
+import socket
 from urllib.request import *
 from urllib.error import *
 from avtb_global import *
+
+socket.setdefaulttimeout(10)
+
 #socket.socket(socket_family,socket_type,protocal=0)
 #socket_family 可以是 AF_UNIX 或 AF_INET。socket_type 可以是 SOCK_STREAM 或 SOCK_DGRAM。protocol 一般不填,默认值为 0。
 
@@ -14,6 +18,7 @@ from avtb_global import *
 # 'Cookie':'JSESSIONID=76782BCA557E307FBC7F29CB08E250FF;tk=VDAxKt94hbSfakQbTHXBgDSCDexK3E0EK7VJsIrwE7Mko1210;route=9036359bb8a8a461c164a04f8f50b252;BIGipServerotn=1290797578.38945.0000;BIGipServerpool_passport=300745226.50215.0000;current_captcha_type=Z;_jc_save_fromStation=%u5E7F%u5DDE%2CGZQ;_jc_save_toStation=%u6DF1%u5733%2CSZQ;_jc_save_fromDate=2017-10-07;_jc_save_toDate=2017-10-03;_jc_save_wfdc_flag=dc'}
 
 global_headers = {}
+global_http_buffer_len = 40960
 
 def request_get(host, path, debug=0):
     http_ok = False
@@ -75,7 +80,7 @@ def urllib_get(host, path, debug=0):
     return data
 
 
-def http_get(host, path, debug=0):
+def http_get(url, debug=0):
     #获取tcp/ip套接字
     tcpSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -85,40 +90,61 @@ def http_get(host, path, debug=0):
     #由于 socket 模块中有太多的属性。我们在这里破例使用了'from module import *'语句。使用 'from socket import *',我们就把 socket 模块里的所有属性都带到我们的命名空间里了,这样能 大幅减短我们的代码。
     #例如tcpSock = socket(AF_INET, SOCK_STREAM)
 
-    ret = tcpSock.connect_ex((host, 80))
+    items = re.findall(r"(https?):\/\/([^\/\\]*)(\/?.*)", url)
+    if debug > 0:
+        print(items)
+        
+    if len(items) < 1:
+        print("http_get: invalid host %s" % (url))
+        return ""
+
+    port = 80
+    if items[0][0] == "https":
+        port = 443
+
+    domain = items[0][1]
+    path = items[0][2]
+    if not path:
+        path = "/"
+
+    ret = tcpSock.connect_ex((domain, port))
     tcpSock.setblocking(False)
     if debug > 0 :
-        print("conn ret: %d" % (ret))
-    ret = tcpSock.send(("GET %s HTTP/1.1\r\n" % (path)).encode('utf-8'))
-    ret = tcpSock.send(("Host: %s\r\n" % (host)).encode('utf-8'))
-    ret = tcpSock.send("\r\n".encode('utf-8'))
+        print("conn to [%s:%d] ret: %d" % (domain, port, ret))
+
+    if ret != 0 :
+        print("connect to %s:%d error: %d" % (domain, port, ret))
+        return ""
+    cmd = "GET %s HTTP/1.1\r\n" % (path)
+    host = "Host: %s\r\n" % (domain)
+    ua = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.79\r\n"
+    ret = tcpSock.send(cmd.encode('utf-8'))
+    ret += tcpSock.send(host.encode('utf-8'))
+    ret += tcpSock.send(ua.encode('utf-8'))
+    ret += tcpSock.send("\r\n".encode('utf-8'))
     if debug > 0 :
+        print("%s%s%s" % (cmd,host,ua))
         print("send ret: %d" % (ret))
 
-    # HTTP/1.1 301 Moved Permanently
-    # X-Powered-By: Express
-    # Location: http://www.avtbt.com//recent/9/
-    mod301 = re.compile(r"HTTP/1\.1 30[0-9] .*Location: (http.*?)[\r\n]", re.S)
     msg = ""
     while True:
         try:
-            byte = tcpSock.recv(40960)
+            byte = tcpSock.recv(global_http_buffer_len)
             msg += byte.decode('utf-8', errors='ignore')
             if debug > 0 :
                 print("recv len: %d/%d" % (len(byte), len(msg)))
                 print("last: %s" % (byte[len(byte)-20:len(byte)]))
+                print(msg)
 
             last = msg[len(msg)-10:len(msg)]
-            if last == "   \r\n0\r\n\r\n" :
+            if last == "   \r\n0\r\n\r\n":
                 break
-            newurl = mod301.findall(msg)
-            if newurl :
-                print("get new jump url:%s" % (newurl[0]))
+
+            if re.match(r"HTTP/1\.1 [0-13-9][0-9][0-9] ", msg):
+                if debug > 0:
+                    print("receive NOT 200 response")
                 break
                 
-            if debug > 0 :
-                print(msg)
-                break
         except OSError:
             pass
 

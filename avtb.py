@@ -16,34 +16,6 @@ from bs4 import BeautifulSoup
 from avtb_global import *
 import sock
 
-def sort_rate():
-    global video_arr
-    global video_sort
-    video_sort = []
-    for vid in video_arr:
-        irate = video_arr[vid]['rate']
-        fromidx = 0
-        toidx = len(video_sort) - 1
-        mid = 0
-        while toidx >= 0 and toidx > fromidx:
-            mid = int(fromidx + (toidx - fromidx) / 2)
-            crate = int(video_arr[video_sort[mid]]['rate'])
-            if crate > irate:
-                fromidx = mid + 1
-            elif crate < irate:
-                toidx = mid - 1
-            else:
-                break
-            mid = fromidx
-            #print("%d %d %d"%(fromidx, toidx, len(video_sort)))
-
-        if mid < len(video_sort) and video_arr[video_sort[mid]]['rate'] > irate:
-            video_sort.insert(mid+1, vid)
-        else:
-            video_sort.insert(mid, vid)
-        #print("insert %s/%s to %d" % (rate, vid, mid))
-
-
 def fetch_link(url, idx):
     file_info = url.split('/')
     file_name = file_info[-1].split('?')[0]
@@ -73,76 +45,24 @@ def fetch_link(url, idx):
             file_size = int(u.info().get("Content-Length"))
 
         if idx >= 0:
-            if info_arr[idx]["stat"] == 0:
-                info_lock.acquire()
-                info_arr[idx]["stat"] = 1
-                info_arr[idx]["file_size"] = file_size
-                info_arr[idx]["retry"] = 0
-                info_lock.release()
-                print("file size: %d" % (file_size,))
-
-            info_lock.acquire()
-            info_arr[idx]["file"] = file_name
-            # info_arr[id]["file_size"] = file_size
-            info_arr[idx]["file_dl"] = file_size_dl
-            info_lock.release()
+            update_file_info(file_name, file_size, file_size_dl, idx)
 
         if file_size <= 0:
             raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
 
-        f = open(get_fullpath(file_name), 'ab+')
-        #f.seek(file_size_dl)
-        block_sz = 256 * 1024
-        cnt = 0
-        while True:
-            try:
-                buffer = u.read(block_sz)
-                if not buffer:
-                    raise MyExcept("read buff invalid")
-            except Exception as e:
-                if idx >= 0 and file_size_dl != file_size:
-                    fail = fail + 1
-                    info_lock.acquire()
-                    info_arr[idx]["stat"] = -3
-                    info_arr[idx]["retry"] = fail
-                    info_lock.release()
-                break
-
-            file_size_dl += len(buffer)
-            f.write(buffer)
-            if idx >= 0 and cnt % 30 == 0:
-                # print("%s: %d/%d  %.2f%%" % (file_name, file_size_dl, file_size, file_size_dl*100/file_size))
-                info_lock.acquire()
-                info_arr[idx]["file_dl"] = file_size_dl
-                info_arr[idx]["stat"] = 1
-                info_lock.release()
-
-            cnt = cnt + 1
-
-            if file_size_dl > file_size:
-                print("%s download size bias: %d" % (file_name, file_size_dl-file_size))
-                file_size_dl = file_size
-                break
-
-        f.close()
+        file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
         if file_size_dl == file_size:
             break
 
     ret = -1
     if file_size_dl == file_size:
         if idx >= 0:
-            info_lock.acquire()
-            info_arr[idx]["file_dl"] = file_size_dl
-            info_arr[idx]["stat"] = 2
-            info_lock.release()
+            update_file_stat(idx, file_size_dl, 2)
         print("%s: %d ... Done" % (file_name, file_size_dl))
         ret = file_size
     elif file_size_dl == -3:
         if idx >= 0:
-            info_lock.acquire()
-            info_arr[idx]["file_dl"] = file_size
-            info_arr[idx]["stat"] = 3
-            info_lock.release()
+            update_file_stat(idx, file_size, 3)
         print("%s: %d ... already exists" % (file_name, file_size))
         ret = 0
     else:
@@ -154,10 +74,6 @@ def fetch_link(url, idx):
 
 # type=0: list, type=1: download
 def fetch_url(arg, arg_type, isshow=False, use_req=False):
-    global info_lock
-    global info_arr
-    global video_arr
-    global video_lock
     # 网址
     # Accept - Language: zh - CN
     # Connection: Keep - Alive
@@ -183,10 +99,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
     info["retry"] = 0
 
     if arg_type == 1:
-        info_lock.acquire()
-        info["id"] = len(info_arr)
-        info_arr.append(info)
-        info_lock.release()
+        create_new_file_info(info)
 
     try:
         # 爬取结果
@@ -203,7 +116,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         if use_req == False:
             data = sock.request_get(get_host, get_path)
         else:
-            data = sock.http_get(get_host, get_path, debug=0)
+            data = sock.http_get(url, debug=0)
 
         print("get data len: %d" % (len(data)))
 
@@ -223,30 +136,26 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
 
         found_list = 0
         print("")
-        video_lock.acquire()
         try:
             for child in soup.find_all("a", class_="thumbnail") :
                 vinfo = child['href'].split('/')
                 vid = vinfo[1]
                 vname = format_str(vinfo[2])
+                vrate = 0
                 #if len(vinfo) < 3 :
                 #    break
                 found_list = found_list + 1
-                video_arr.update({vid:{'name':vname, 'rate':0}})
                 for cc in child.find_all("span", class_="video-rating") :
                     #video_arr[vid].update({'rate':int(cc.get_text().strip().split('%')[0])})
-                    video_arr[vid].update({'rate':int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])})
+                    vrate = int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])
                     break
+
+                update_video_info(vid, vname, vrate)
+
                 if isshow:
-                    if 'rate' not in video_arr[vid].keys() or 'name' not in video_arr[vid].keys():
-                        video_arr[vid].update({'rate':0})
-                        video_arr[vid].update({'name':"NULL"})
-                        print("%s invalid" % (vid))
-                    else:
-                        print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
+                    print("%s [%d%%]  %s" % (vid, vrate, vname))
         except Exception as e:
             print("parse url %s fail: %s" % (arg, e))
-        video_lock.release()
 
         if found_list > 0 :
             print("get list from %s: %d" % (url, found_list))
@@ -269,19 +178,13 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
     finally:
         if downrst[1] < 0 and arg_type == 1 :
             print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
-            info_lock.acquire()
-            info_arr[info["id"]]["stat"] = -2
-            fn = info_arr[info["id"]]["file"]
-            info_lock.release()
+            fn = update_file_stat(infoidx=info["id"], stat=-2)
             if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
                 os.remove(get_fullpath(fn))
                 print("remove file: %s ..." % (fn))
 
 
 def check_queue(arg, arg_type, isshow=False, use_req=False):
-    global info_lock
-    global download_count
-
     is_check_queue = True
     while is_check_queue:
         fetch_url(arg, arg_type, isshow, use_req)
@@ -296,21 +199,15 @@ def check_queue(arg, arg_type, isshow=False, use_req=False):
             is_check_queue = False
         task_lock.release()
 
-    info_lock.acquire()
-    if download_count > 0 :
-        download_count = download_count - 1
+    if get_download_count() > 0 :
+        dec_download_count()
     else :
-        print("thread running but counter invalid: %d" % (download_count))
-    info_lock.release()
+        print("thread running but counter invalid: %d" % (get_download_count()))
 
 
 def run_download(argu, is_page=False):
-    global info_lock
-    global download_count
-
-    info_lock.acquire()
-    download_count = download_count+1
-    info_lock.release()
+    print("run_download: %s" %(argu))
+    inc_download_count()
     if is_page:
         t = threading.Thread(target=check_queue, args=(argu, 0, True, True))
     else:
@@ -320,42 +217,32 @@ def run_download(argu, is_page=False):
     t.start()
 
 
-def make_url(vid):
-    global video_arr
-    
-    if vid in video_arr.keys():
-        return get_url(vid+"/"+video_arr[vid]['name']+"/")
-    return get_url(vid+"/")
-
-
 if __name__ == "__main__":
     # threads = {}
     input_sess = PromptSession(history=FileHistory("history.txt"), auto_suggest=AutoSuggestFromHistory(), enable_history_search=True)
+    test_host()
+
     while True:
         user_input = input_sess.prompt("URL> ")
         if user_input == "exit" or user_input == "quit":
-            print("current threads %d, exiting ..." % (download_count))
+            print("current threads %d, exiting ..." % (get_download_count()))
             break
         if re.match(r"^[0-9]+$", user_input) :
             uu = make_url(user_input)
             # print(user_input)
-            if download_count >= task_currency :
+            if get_download_count() >= task_currency :
                 task_lock.acquire()
                 #task_queue.append(uu)
                 task_queue.append(user_input)
-                print("current %d threads running, put in queue %d..." % (download_count, len(task_queue)))
+                print("current %d threads running, put in queue %d..." % (get_download_count(), len(task_queue)))
                 task_lock.release()
                 continue
             else:
                 run_download(uu)
         if user_input == 'l' or re.match(r"^list$", user_input) :
             print("fetch list ...")
-            video_lock.acquire()
-            video_arr = {}
-            video_show_idx = 0
-            video_sort = []
-            video_lock.release()
-            run_download(main_host, True)
+            init_video_info()
+            run_download(get_main_host(), True)
             for i in range(2, max_page+1):
                 run_download(get_url("recent/%d/"%(i)), True)
         if re.match(r"^s ", user_input) or re.match(r"^search", user_input):
@@ -370,30 +257,14 @@ if __name__ == "__main__":
             do_next = 1
             if user_input == 'rn' or re.match("^renext$", user_input) :
                 do_next = 0
-            video_lock.acquire()
-            if video_show_idx >= len(video_arr) or do_next == 0 :
-                video_show_idx = 0
-            print("show list from %d/%d" % (video_show_idx, len(video_arr)))
 
-            if len(video_sort) <= 0 or len(video_arr) != len(video_sort):
-                sort_rate()
-                print("total sort list: %d" % (len(video_sort)))
+            show_video_info(do_next)
 
-            show_cnt = 0
-            while video_show_idx < len(video_sort) and show_cnt < 10 :
-                vid = video_sort[video_show_idx]
-                print("%s [%d%%]  %s" % (vid, video_arr[vid]['rate'], video_arr[vid]['name']))
-                show_cnt = show_cnt + 1
-                video_show_idx = video_show_idx + 1
-
-            if show_cnt > 0:
-                video_show_idx = video_show_idx % len(video_sort)
-            video_lock.release()
         if re.match(r"^setc ", user_input):
             new_sc = int(user_input.split(" ")[1])
             print("set currency: %d" % (new_sc))
             task_currency = new_sc
-            left = task_currency - download_count
+            left = task_currency - get_download_count() 
             if left > 0:
                 for i in range(0, left):
                     uu = ""
@@ -405,48 +276,25 @@ if __name__ == "__main__":
                     if uu != "":
                         run_download(make_url(uu))
         if re.match(r"^queue$", user_input) or user_input == "q":
-            info_lock.acquire()
-            for info in info_arr:
-                tail = "%.1f%%" % (info["file_dl"] * 100 / info["file_size"])
-                if info["stat"] == 2:
-                    tail = "Done"
-                elif info["stat"] == 3:
-                    tail = "Exists"
-                elif info["stat"] == -2:
-                    tail = "Fail"
-                elif info["stat"] == -3:
-                    tail = "%s Retry ... %d" % (tail, info["retry"])
-
-                print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
-            info_lock.release()
+            show_file_info()
             print("-------------------")
             task_lock.acquire()
             qlen = len(task_queue)
             print("total %d task in queue" % (qlen))
             for i in range(0, qlen):
-                vname = "invalid"
-                if task_queue[i] in video_arr.keys():
-                    vname = video_arr[task_queue[i]]['name']
-                print("%s - %s" % (task_queue[i], vname))
+                vinfo = find_video_info(task_queue[i])
+                print("%s - %s" % (task_queue[i], vinfo["name"]))
             task_lock.release()
 
         if re.match(r"^showh$", user_input):
-            hlen = len(host_list)
-            print("total host: %d" % hlen)
-            for i in range(0, hlen):
-                print("%s - %s" % (i, host_list[i]))
+            show_host_list()
             print("-------------------")
-            print("current main: %s" % main_host)
+            print("current main: %s" % get_main_host())
 
         if re.match(r"^seth ", user_input):
-            hlen = len(host_list)
             hid = int(user_input.split(" ")[1])
-            print("current host %s" % main_host)
-            if hid >= 0 and hid < hlen:
-                main_host = host_list[hid]
-                print("new host %s" % main_host)
-            else:
-                print("invalid host id: %d" % hid)
+            print("current host %s" % get_main_host())
+            set_main_host(hid)
 
         if re.match(r"^setsp ", user_input):
             nsp = user_input.split(" ")[1]
@@ -474,4 +322,4 @@ if __name__ == "__main__":
 
         #if user_input == "":
 
-        print("current threads: %d" % (download_count))
+        print("current threads: %d" % (get_download_count()))
