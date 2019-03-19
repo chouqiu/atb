@@ -1,5 +1,6 @@
 import requests
 import socket
+import struct
 from urllib.request import *
 from urllib.error import *
 from avtb_global import *
@@ -83,6 +84,8 @@ def urllib_get(host, path, debug=0):
 def http_get(url, debug=0):
     #获取tcp/ip套接字
     tcpSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #tcpSock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack("ll", 10, 0))
+    #tcpSock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("ll", 10, 0))
 
     #获取udp/ip套接字
     #udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -143,6 +146,9 @@ def http_get(url, debug=0):
             if re.match(r"HTTP/1\.1 [0-13-9][0-9][0-9] ", msg):
                 if debug > 0:
                     print("receive NOT 200 response")
+                break
+
+            if not byte or len(byte) <= 0:
                 break
                 
         except OSError:

@@ -256,6 +256,10 @@ def test_host():
         msg = sock.http_get(host_list[hid], debug=0)
         hcode = mod200.findall(msg)
 
+        if not hcode:
+            print("host [%s] ... fail" % (host_list[hid]))
+            continue
+
         if hcode[0] == "301" or hcode[0] == "302":
             newurl = mod301.findall(msg)
             if newurl:
