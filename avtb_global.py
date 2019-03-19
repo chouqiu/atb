@@ -51,7 +51,7 @@ def show_video_info(do_next):
 def find_video_info(vidx):
     global video_lock
     global video_arr
-    vinfo = {"name":"invalid","rate":0}
+    vinfo = False
     video_lock.acquire()
     if vidx in video_arr.keys():
         vinfo = video_arr[vidx]
@@ -99,14 +99,32 @@ def show_file_info():
         print("%d. %s %.1fM --- %s" % (info["id"], info["file"], info["file_size"] / 1024 / 1024, tail))
     info_lock.release()
 
+
+def get_new_file_info(url, host):
+    info = {}
+    info["url"] = url
+    info["stat"] = 0
+    info["file_id"] = 0
+    info["file"] = "NA"
+    info["file_size"] = -1
+    info["file_dl"] = 0
+    info["host"] = host
+    info["retry"] = 0
+    return info
+
 def create_new_file_info(info):
     global info_arr
     global info_lock
+
+    if "file_size" not in info.keys():
+        print("create_new_file_info: invalid info struct")
+        return False
 
     info_lock.acquire()
     info["id"] = len(info_arr)
     info_arr.append(info)
     info_lock.release()
+    return info
 
 def update_file_stat(infoidx, file_size=-1, stat=0):
     global info_arr

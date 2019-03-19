@@ -39,9 +39,6 @@ def fetch_link(url, idx):
         # file_size_dl = 0
 
         if fail == 0:
-            if os.path.exists(get_fullpath(file_name)):
-                file_size_dl = -3
-                break
             file_size = int(u.info().get("Content-Length"))
 
         if idx >= 0:
@@ -49,6 +46,10 @@ def fetch_link(url, idx):
 
         if file_size <= 0:
             raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
+
+        if os.path.exists(get_fullpath(file_name)):
+            file_size_dl = -3
+            break
 
         file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
         if file_size_dl == file_size:
@@ -89,17 +90,14 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         cgi = "/"
     print("fetch host: %s %s" % (h, cgi))
 
-    info = {}
-    info["url"] = url
-    info["stat"] = 0
-    info["file"] = cgi
-    info["file_size"] = -1
-    info["file_dl"] = 0
-    info["host"] = h
-    info["retry"] = 0
+    info = get_new_file_info(url, h)
 
     if arg_type == 1:
-        create_new_file_info(info)
+        info = create_new_file_info(info)
+
+    if not info:
+        print("init file info fail: %s::%s" % (h, cgi))
+        return
 
     try:
         # 爬取结果
@@ -239,6 +237,7 @@ if __name__ == "__main__":
                 continue
             else:
                 run_download(uu)
+
         if user_input == 'l' or re.match(r"^list$", user_input) :
             print("fetch list ...")
             init_video_info()
