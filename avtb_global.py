@@ -100,7 +100,7 @@ def show_file_info():
     info_lock.release()
 
 
-def get_new_file_info(url, host):
+def get_new_file_info(url="-", host="-"):
     info = {}
     info["url"] = url
     info["stat"] = 0
@@ -144,6 +144,29 @@ def update_file_stat(infoidx, file_size=-1, stat=0):
 
     return fn
 
+def update_file_info_ex(info, infoidx):
+    global info_arr
+    global info_lock
+
+    if infoidx < 0 or infoidx >= len(info_arr):
+        print("update_file_info_ex: invalid info index %d" % (infoidx))
+        return False
+
+    info_lock.acquire()
+    if info["file"] != "NA":
+        info_arr[infoidx]["file"] = info["file"]
+    if info["file_size"] >= 0:
+        info_arr[infoidx]["file_size"] = info["file_size"]
+    if info["stat"] != 0:
+        info_arr[infoidx]["stat"] = info["stat"]
+    if info["file_id"] > 0:
+        info_arr[infoidx]["file_id"] = info["file_id"]
+    if info["file_dl"] > 0:
+        info_arr[infoidx]["file_dl"] = info["file_dl"]
+    if info["retry"] > 0:
+        info_arr[infoidx]["retry"] = info["retry"]
+        
+    info_lock.release()
 
 def update_file_info(file_name, file_size, file_size_dl, infoidx):
     global info_arr
@@ -177,22 +200,16 @@ def write_file(file_name, file_size, file_size_dl, infoidx, urlsock):
             if not buffer:
                 raise MyExcept("read buff invalid")
         except Exception as e:
-            if infoidx >= 0 and file_size_dl != file_size:
-                fail = fail + 1
-                info_lock.acquire()
-                info_arr[infoidx]["stat"] = -3
-                info_arr[infoidx]["retry"] = fail
-                info_lock.release()
             break
 
         file_size_dl += len(buffer)
         f.write(buffer)
         if infoidx >= 0 and cnt % 30 == 0:
             # print("%s: %d/%d  %.2f%%" % (file_name, file_size_dl, file_size, file_size_dl*100/file_size))
-            info_lock.acquire()
-            info_arr[infoidx]["file_dl"] = file_size_dl
-            info_arr[infoidx]["stat"] = 1
-            info_lock.release()
+            info = get_new_file_info()
+            info["file_dl"] = file_size_dl
+            info["stat"] = 1
+            update_file_info_ex(info, infoidx)
 
         cnt = cnt + 1
 

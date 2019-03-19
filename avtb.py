@@ -52,8 +52,15 @@ def fetch_link(url, idx):
             break
 
         file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
+
         if file_size_dl == file_size:
             break
+        else:
+            fail = fail + 1
+            info = create_new_file_info()
+            info["stat"] = -3
+            info["retry"] = fail
+            update_file_info_ex(info, idx)
 
     ret = -1
     if file_size_dl == file_size:
