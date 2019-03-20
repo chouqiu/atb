@@ -34,30 +34,34 @@ def fetch_link(url, idx):
             headers["Range"] = "bytes=%d-" % (file_size_dl,)
             print("continue downloading %s from %d ... " % (file_name, file_size_dl))
 
-        request = Request(url=url, headers=headers)
-        u = urlopen(request)
-        # file_size_dl = 0
+        try:
+            request = Request(url=url, headers=headers)
+            u = urlopen(request)
+            # file_size_dl = 0
 
-        if fail == 0:
-            file_size = int(u.info().get("Content-Length"))
+            if fail == 0:
+                file_size = int(u.info().get("Content-Length"))
 
-        if idx >= 0:
-            update_file_info(file_name, file_size, file_size_dl, idx)
+            if idx >= 0:
+                update_file_info(file_name, file_size, file_size_dl, idx)
 
-        if file_size <= 0:
-            raise MyExcept("fetch %s fail: invalid size %d" % (file_name, file_size))
+            if file_size <= 0:
+                raise MyExcept("fetch_link: fetch %s fail, invalid size %d" % (file_name, file_size))
 
-        if os.path.exists(get_fullpath(file_name)):
-            file_size_dl = -3
-            break
+            if os.path.exists(get_fullpath(file_name)):
+                file_size_dl = -3
+                break
 
-        file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
+            file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
 
-        if file_size_dl == file_size:
-            break
-        else:
+            if file_size_dl == file_size:
+                break
+            else:
+                raise MyExcept("fetch_link: download file fail: %d/%d" % (file_size_dl/file_size))
+
+        except Exception as e:
             fail = fail + 1
-            info = create_new_file_info()
+            info = get_new_file_info()
             info["stat"] = -3
             info["retry"] = fail
             update_file_info_ex(info, idx)
