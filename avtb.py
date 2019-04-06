@@ -15,6 +15,8 @@ import requests
 from bs4 import BeautifulSoup
 from avtb_global import *
 import sock
+import time
+import random
 
 def fetch_link(url, idx):
     file_info = url.split('/')
@@ -48,7 +50,7 @@ def fetch_link(url, idx):
             if file_size <= 0:
                 raise MyExcept("fetch_link: fetch %s fail, invalid size %d" % (file_name, file_size))
 
-            if os.path.exists(get_fullpath(file_name)):
+            if os.path.exists(get_fullpath(file_name)) and file_size_dl <= 0:
                 file_size_dl = -3
                 break
 
@@ -65,6 +67,8 @@ def fetch_link(url, idx):
             info["stat"] = -3
             info["retry"] = fail
             update_file_info_ex(info, idx)
+            print("waiting for retry %s/%d ..." % (file_name, fail))
+            time.sleep(random.randint(1,5))
 
     ret = -1
     if file_size_dl == file_size:
