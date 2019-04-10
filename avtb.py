@@ -297,7 +297,10 @@ if __name__ == "__main__":
             print("total %d task in queue" % (qlen))
             for i in range(0, qlen):
                 vinfo = find_video_info(task_queue[i])
-                print("%s - %s" % (task_queue[i], vinfo["name"]))
+                if vinfo:
+                    print("%s - %s" % (task_queue[i], vinfo["name"]))
+                else :
+                    print("%s - invalid" % (task_queue[i]))
             task_lock.release()
 
         if re.match(r"^showh$", user_input):
