@@ -110,24 +110,28 @@ def http_get(url, debug=0):
     if not path:
         path = "/"
 
-    ret = tcpSock.connect_ex((domain, port))
-    tcpSock.setblocking(False)
-    if debug > 0 :
-        print("conn to [%s:%d] ret: %d" % (domain, port, ret))
+    try:
+        ret = tcpSock.connect_ex((domain, port))
+        tcpSock.setblocking(False)
+        if debug > 0 :
+            print("conn to [%s:%d] ret: %d" % (domain, port, ret))
 
-    if ret != 0 :
-        print("connect to %s:%d error: %d" % (domain, port, ret))
+        if ret != 0 :
+            print("connect to %s:%d error: %d" % (domain, port, ret))
+            return ""
+        cmd = "GET %s HTTP/1.1\r\n" % (path)
+        host = "Host: %s\r\n" % (domain)
+        ua = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.79\r\n"
+        ret = tcpSock.send(cmd.encode('utf-8'))
+        ret += tcpSock.send(host.encode('utf-8'))
+        ret += tcpSock.send(ua.encode('utf-8'))
+        ret += tcpSock.send("\r\n".encode('utf-8'))
+        if debug > 0 :
+            print("%s%s%s" % (cmd,host,ua))
+            print("send ret: %d" % (ret))
+    except Exception as e:
+        print("http_get: connect to %s fail" % (domain))
         return ""
-    cmd = "GET %s HTTP/1.1\r\n" % (path)
-    host = "Host: %s\r\n" % (domain)
-    ua = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.79\r\n"
-    ret = tcpSock.send(cmd.encode('utf-8'))
-    ret += tcpSock.send(host.encode('utf-8'))
-    ret += tcpSock.send(ua.encode('utf-8'))
-    ret += tcpSock.send("\r\n".encode('utf-8'))
-    if debug > 0 :
-        print("%s%s%s" % (cmd,host,ua))
-        print("send ret: %d" % (ret))
 
     msg = ""
     while True:

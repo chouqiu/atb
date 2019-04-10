@@ -309,6 +309,8 @@ def get_store():
 
 def set_store(path):
     global store_path
+    if not path:
+        path = "./"
     store_path = path
 
 def make_url(vid):

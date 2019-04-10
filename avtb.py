@@ -274,7 +274,7 @@ if __name__ == "__main__":
 
             show_video_info(do_next)
 
-        if re.match(r"^setc ", user_input):
+        if re.match(r"^setc [0-9]+", user_input):
             new_sc = int(user_input.split(" ")[1])
             print("set currency: %d" % (new_sc))
             task_currency = new_sc
@@ -305,7 +305,7 @@ if __name__ == "__main__":
             print("-------------------")
             print("current main: %s" % get_main_host())
 
-        if re.match(r"^seth ", user_input):
+        if re.match(r"^seth [0-9]+", user_input):
             hid = int(user_input.split(" ")[1])
             print("current host %s" % get_main_host())
             set_main_host(hid)
