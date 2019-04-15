@@ -18,7 +18,7 @@ max_page = 10
 
 #main_host="http://www.999avtb.com/"
 main_host = 0
-host_list = ["http://www.avtbt.com", "https://www.ppp251.com"]
+host_list = ["http://www.avtb188.com", "https://www.ppp251.com"]
 
 store_path='.'
 
