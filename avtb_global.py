@@ -18,7 +18,7 @@ max_page = 10
 
 #main_host="http://www.999avtb.com/"
 main_host = 0
-host_list = ["http://www.avtb188.com", "https://www.ppp251.com"]
+host_list = ["http://www.avtb288.com", "https://www.ppp251.com"]
 
 store_path='.'
 
@@ -260,13 +260,13 @@ def test_host():
             print("host [%s] ... fail" % (host_list[hid]))
             continue
 
-        if hcode[0] == "301" or hcode[0] == "302":
+        if re.match(r"^3[0-9][0-9]$", hcode[0]):
             newurl = mod301.findall(msg)
             if newurl:
-                print("host [%s] ... redirect to %s" % (host_list[hid], newurl[0]))
+                print("host [%s] %s ... redirect to %s" % (host_list[hid], hcode[0], newurl[0]))
                 host_list[hid] = newurl[0]
             else:
-                print("host [%s] ... not find redirect url" % (host_list[hid]))
+                print("host [%s] %s ... not find redirect url" % (host_list[hid], hcode[0]))
         elif hcode[0] == "200":
             print("host [%s] ... OK" % (host_list[hid]))
             continue
