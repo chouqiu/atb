@@ -4,6 +4,7 @@
 1. pip install prompt_toolkit
 2. pip install beautifulsoup4
 3. pip install lxml
+4. pip install requests
 
 when update pip to 10.0, there's an error: "cannot import name main". You can solve this in two ways:
 1. modify /usr/bin/pip3
