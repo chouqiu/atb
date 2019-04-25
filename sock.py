@@ -162,5 +162,5 @@ def http_get(url, debug=0):
     return msg
 
 if __name__ == '__main__':
-    msg = http_get("www.avtbq.com", '/', debug=1)
+    msg = http_get("http://www.avtb188.com", debug=1)
     print(msg)
