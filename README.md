@@ -12,6 +12,15 @@ when update pip to 10.0, there's an error: "cannot import name main". You can so
 ### some comment
 1. update pip: pip install --upgrade pip.
 2. sometimes install lxml may fail, check if libxml and libxml-dev is installed.
+3. when compile lxml fail, try this: 
+```
+export C_INCLUDE_PATH=/data/data/termux.com/files/usr/include/:/data/data/termux.com/files/usr/include/lxml2
+export CPLUS_INCLUDE_PATH=/data/data/termux.com/files/usr/include/:/data/data/termux.com/files/usr/include/lxml2
+```
+4. if still fail, try this:
+```
+pkg install libxslt libxslt-dev
+```
 
 ### about github
 You can do the following:
