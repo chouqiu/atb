@@ -74,7 +74,7 @@ def fetch_link(url, idx, debug=0):
             time.sleep(random.randint(1,5))
 
     ret = -1
-    if file_size_dl == file_size:
+    if file_size_dl == file_size and file_size > 0:
         if idx >= 0:
             update_file_stat(idx, file_size_dl, 2)
         print("%s: %d ... Done" % (file_name, file_size_dl))
@@ -92,7 +92,7 @@ def fetch_link(url, idx, debug=0):
 
 
 # type=0: list, type=1: download
-def fetch_url(arg, arg_type, isshow=False, use_req=False):
+def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
     # 网址
     # Accept - Language: zh - CN
     # Connection: Keep - Alive
@@ -146,14 +146,16 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
             for child in soup.find_all("source", label="360p"):
                 found = found + 1
                 vsrc = format_str(child["src"])
-                print(child["src"])
+                if debug > 0 :
+                    print(child["src"])
                 downrst = fetch_link(child["src"], info["id"])
                 if isshow:
                     print("get link %s, %d" % (downrst[0], downrst[1]))
                 break
 
             found_list = 0
-            print("")
+            if debug > 0 :
+                print("")
             try:
                 for child in soup.find_all("a", class_="thumbnail") :
                     vinfo = child['href'].split('/')
@@ -198,8 +200,8 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
 
         time.sleep(random.randint(1,2))
 
-    if get_url_fail >=3 :
-        print("%s: %s fetch fail, %s, file found %d, video list found %d" % (__name__, arg, e, found, found_list))
+    if get_url_fail >= get_max_url_retry():
+        print("%s: %s fetch fail, %s, file found %d, video list found %d" % (__name__, arg, downrst[0], found, found_list))
     if downrst[1] < 0 and arg_type == 1 :
         print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
         fn = update_file_stat(infoidx=info["id"], stat=-2)
