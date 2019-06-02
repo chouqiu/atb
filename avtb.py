@@ -18,7 +18,7 @@ import sock
 import time
 import random
 
-def fetch_link(url, idx):
+def fetch_link(url, idx, debug=0):
     file_info = url.split('/')
     file_name = file_info[-1].split('?')[0]
     file_host = file_info[2]
@@ -27,14 +27,15 @@ def fetch_link(url, idx):
     file_size_dl = 0
     file_size = 0
     fail = 0
-    while fail <= 5:
+    while fail <= get_max_download_retry():
         headers = {
             'User-Agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063',
             'Host': file_host,
         }
         if file_size_dl > 0:
             headers["Range"] = "bytes=%d-" % (file_size_dl,)
-            print("continue downloading %s from %d ... " % (file_name, file_size_dl))
+            if debug > 0:
+                print("continue downloading %s from %d ... " % (file_name, file_size_dl))
 
         try:
             request = Request(url=url, headers=headers)
@@ -67,7 +68,9 @@ def fetch_link(url, idx):
             info["stat"] = -3
             info["retry"] = fail
             update_file_info_ex(info, idx)
-            print("waiting for retry %s/%d ..." % (file_name, fail))
+        finally:
+            if debug > 0:
+                print("waiting for retry %s/%d ..." % (file_name, fail))
             time.sleep(random.randint(1,5))
 
     ret = -1
@@ -82,7 +85,7 @@ def fetch_link(url, idx):
         print("%s: %d ... already exists" % (file_name, file_size))
         ret = 0
     else:
-        print("down fail: %d" % (fail,))
+        print("download %s fail: retry %d" % (file_name, fail))
         ret = -1
 
     return [file_name, ret]
@@ -114,87 +117,95 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False):
         print("init file info fail: %s::%s" % (h, cgi))
         return
 
-    try:
-        # 爬取结果
-        downrst = ["OK", 1]
-        data = ""
-        get_host = urlitems[2]
-        get_path = '/'.join(urlitems[3:len(urlitems)])
-        if len(get_path) == 0:
-            get_path = '/'
-        else:
-            get_path = '/' + get_path
-
-        # 请求
-        if use_req == False:
-            data = sock.request_get(get_host, get_path)
-        else:
-            data = sock.http_get(url, debug=0)
-
-        print("get data len: %d" % (len(data)))
-
-        # 打印结果
-        soup = BeautifulSoup(data, "lxml")
-        found = 0
-
-        # 抓取视频链接
-        for child in soup.find_all("source", label="360p"):
-            found = found + 1
-            vsrc = format_str(child["src"])
-            print(child["src"])
-            downrst = fetch_link(child["src"], info["id"])
-            if isshow:
-                print("get link %s, %d" % (downrst[0], downrst[1]))
-            break
-
-        found_list = 0
-        print("")
+    get_url_fail = 0
+    while get_url_fail < get_max_url_retry():
         try:
-            for child in soup.find_all("a", class_="thumbnail") :
-                vinfo = child['href'].split('/')
-                vid = vinfo[1]
-                vname = format_str(vinfo[2])
-                vrate = 0
-                #if len(vinfo) < 3 :
-                #    break
-                found_list = found_list + 1
-                for cc in child.find_all("span", class_="video-rating") :
-                    #video_arr[vid].update({'rate':int(cc.get_text().strip().split('%')[0])})
-                    vrate = int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])
-                    break
+            # 爬取结果
+            downrst = ["OK", 1]
+            data = ""
+            get_host = urlitems[2]
+            get_path = '/'.join(urlitems[3:len(urlitems)])
+            if len(get_path) == 0:
+                get_path = '/'
+            else:
+                get_path = '/' + get_path
 
-                update_video_info(vid, vname, vrate)
+            # 请求
+            if use_req == False:
+                data = sock.request_get(get_host, get_path)
+            else:
+                data = sock.http_get(url, debug=0)
 
+            print("get data len: %d" % (len(data)))
+
+            # 打印结果
+            soup = BeautifulSoup(data, "lxml")
+            found = 0
+
+            # 抓取视频链接
+            for child in soup.find_all("source", label="360p"):
+                found = found + 1
+                vsrc = format_str(child["src"])
+                print(child["src"])
+                downrst = fetch_link(child["src"], info["id"])
                 if isshow:
-                    print("%s [%d%%]  %s" % (vid, vrate, vname))
+                    print("get link %s, %d" % (downrst[0], downrst[1]))
+                break
+
+            found_list = 0
+            print("")
+            try:
+                for child in soup.find_all("a", class_="thumbnail") :
+                    vinfo = child['href'].split('/')
+                    vid = vinfo[1]
+                    vname = format_str(vinfo[2])
+                    vrate = 0
+                    #if len(vinfo) < 3 :
+                    #    break
+                    found_list = found_list + 1
+                    for cc in child.find_all("span", class_="video-rating") :
+                        #video_arr[vid].update({'rate':int(cc.get_text().strip().split('%')[0])})
+                        vrate = int(re.findall(r"[^0-9]([0-9]+)%", cc.get_text())[0])
+                        break
+
+                    update_video_info(vid, vname, vrate)
+
+                    if isshow:
+                        print("%s [%d%%]  %s" % (vid, vrate, vname))
+            except Exception as e:
+                print("parse url %s fail: %s" % (arg, e))
+
+            if found > 0 or found_list > 0 :
+                if found_list > 0 :
+                    print("get list from %s: %d" % (url, found_list))
+                break
+            else:
+                #print("no resource found for url %s." % (url))
+                #downrst[1] = -1
+                #downrst[0] = "no resource found"
+                raise MyExcept("no resource found")
+
+
+                # 打印爬取网页的各类信息
+                # print(type(response))
+                # print(response.geturl())
+                # print(response.info())
+                # print(response.getcode())
         except Exception as e:
-            print("parse url %s fail: %s" % (arg, e))
-
-        if found_list > 0 :
-            print("get list from %s: %d" % (url, found_list))
-        
-        if found <= 0 and found_list <= 0 :
-            print("no resource found for url %s." % (url))
             downrst[1] = -1
-            downrst[0] = "no resource found"
+            downrst[0] = e
+            get_url_fail = get_url_fail + 1
 
+        time.sleep(random.randint(1,2))
 
-            # 打印爬取网页的各类信息
-            # print(type(response))
-            # print(response.geturl())
-            # print(response.info())
-            # print(response.getcode())
-    except Exception as e:
-        downrst[1] = -1
-        downrst[0] = e
-        print("%s: %s fetch fail, %s" % (__name__, arg, e))
-    finally:
-        if downrst[1] < 0 and arg_type == 1 :
-            print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
-            fn = update_file_stat(infoidx=info["id"], stat=-2)
-            if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
-                os.remove(get_fullpath(fn))
-                print("remove file: %s ..." % (fn))
+    if get_url_fail >=3 :
+        print("%s: %s fetch fail, %s, file found %d, video list found %d" % (__name__, arg, e, found, found_list))
+    if downrst[1] < 0 and arg_type == 1 :
+        print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
+        fn = update_file_stat(infoidx=info["id"], stat=-2)
+        if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
+            os.remove(get_fullpath(fn))
+            print("remove file: %s ..." % (fn))
 
 
 def check_queue(arg, arg_type, isshow=False, use_req=False):

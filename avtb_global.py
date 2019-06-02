@@ -14,11 +14,13 @@ video_show_idx = 0
 task_lock = threading.Lock()
 task_queue = []
 task_currency = 1
-max_page = 10
+max_page = 20
+max_download_retry = 10
+max_url_retry = 3
 
 #main_host="http://www.999avtb.com/"
 main_host = 0
-host_list = ["http://www.avtb135.com", "http://www.avtb.com"]
+host_list = ["http://www.avtb135.com", "http://www.avtbdizhi.com"]
 
 store_path='.'
 
@@ -319,6 +321,14 @@ def make_url(vid):
     if vid in video_arr.keys():
         return get_url(vid+"/"+video_arr[vid]['name']+"/")
     return get_url(vid+"/")
+
+def get_max_download_retry():
+    global max_download_retry
+    return max_download_retry
+
+def get_max_url_retry():
+    global max_url_retry
+    return max_url_retry
 
 def sort_rate(debug=0):
     global video_arr

@@ -138,14 +138,13 @@ def http_get(url, debug=0):
         try:
             byte = tcpSock.recv(global_http_buffer_len)
             msg += byte.decode('utf-8', errors='ignore')
+            last = byte[len(byte)-30:len(byte)]
             if debug > 0 :
                 print("recv len: %d/%d" % (len(byte), len(msg)))
-                print("last: %s" % (byte[len(byte)-20:len(byte)]))
+                print("last: %s" % (last))
                 print(msg)
 
-            last = msg[len(msg)-10:len(msg)]
-            if last == "   \r\n0\r\n\r\n":
-                break
+            last = last.decode("utf-8", errors="ignore")
 
             if re.match(r"HTTP/1\.1 [0-13-9][0-9][0-9] ", msg):
                 if debug > 0:
@@ -155,6 +154,17 @@ def http_get(url, debug=0):
             if not byte or len(byte) <= 0:
                 break
                 
+            #if last == "   \r\n0\r\n\r\n":
+            if re.match(r"\s+\r\n0\r\n\r\n$", last):
+                if debug > 0:
+                    print("ending in 0 and return.")
+                break
+
+            if re.match(r"\r\n[\s\t]+\r\n[\s\t]+", last):
+                if debug > 0:
+                    print("ending in multispace and return.")
+                break
+
         except OSError:
             pass
 
@@ -162,5 +172,4 @@ def http_get(url, debug=0):
     return msg
 
 if __name__ == '__main__':
-    msg = http_get("http://www.avtb188.com", debug=1)
-    print(msg)
+    msg = http_get("http://www.avtbdizhi.com", debug=1)
