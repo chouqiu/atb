@@ -201,9 +201,9 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
         time.sleep(random.randint(1,2))
 
     if get_url_fail >= get_max_url_retry():
-        print("%s: %s fetch fail, %s, file found %d, video list found %d" % (__name__, arg, downrst[0], found, found_list))
+        print("Download fail: %s fetch fail, %s, file found %d, video list found %d" % (arg, downrst[0], found, found_list))
     if downrst[1] < 0 and arg_type == 1 :
-        print("get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
+        print("Download fail: get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
         fn = update_file_stat(infoidx=info["id"], stat=-2)
         if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
             os.remove(get_fullpath(fn))
