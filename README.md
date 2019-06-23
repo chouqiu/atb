@@ -19,7 +19,7 @@ export CPLUS_INCLUDE_PATH=/data/data/termux.com/files/usr/include/:/data/data/te
 ```
 4. if still fail, try this:
 ```
-pkg install libxslt libxslt-dev
+pkg install python-dev libxslt libxslt-dev
 ```
 
 ### about github
