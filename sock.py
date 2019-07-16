@@ -134,9 +134,14 @@ def http_get(url, debug=0):
         return ""
 
     msg = ""
+    content_len = -1
+    content_msg = ""
     while True:
         try:
             byte = tcpSock.recv(global_http_buffer_len)
+            if not byte or len(byte) <= 0:
+                break
+            
             msg += byte.decode('utf-8', errors='ignore')
             last = byte[len(byte)-30:len(byte)]
             if debug > 0 :
@@ -146,12 +151,31 @@ def http_get(url, debug=0):
 
             last = last.decode("utf-8", errors="ignore")
 
+            tmp = re.findall(r"Content-Length: *([0-9]+)", msg)
+            if len(tmp) > 0 :
+                if debug > 0:
+                    print("recv content-len: %d" % (int(tmp[0])))
+                content_len = int(tmp[0])
+
+            tmp = re.findall(r"[^\r\n]\r\n\r\n(.*$)", msg, re.S)
+            if len(tmp) > 0:
+                cstr = ""
+                for tmpstr in tmp:
+                    cstr += tmpstr
+                    if debug > 0:
+                        print("content part: %s" % (tmpstr))
+                    
+                if debug > 0 :
+                    print("content recv len: %d/%d" % (len(cstr), len(tmp)))
+                # 12 is a magic number...
+                if content_len > 0 and len(cstr) >= content_len - 12:
+                    if debug > 0 :
+                        print("recv all data:%d/%d" % (len(cstr), content_len))
+                    break
+                
             if re.match(r"HTTP/1\.1 [0-13-9][0-9][0-9] ", msg):
                 if debug > 0:
                     print("receive NOT 200 response")
-                break
-
-            if not byte or len(byte) <= 0:
                 break
                 
             #if last == "   \r\n0\r\n\r\n":
