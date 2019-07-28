@@ -121,6 +121,8 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
     while get_url_fail < get_max_url_retry():
         try:
             # 爬取结果
+            found = 0
+            found_list = 0
             downrst = ["OK", 1]
             data = ""
             get_host = urlitems[2]
@@ -140,7 +142,6 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
 
             # 打印结果
             soup = BeautifulSoup(data, "lxml")
-            found = 0
 
             # 抓取视频链接
             for child in soup.find_all("source", label="360p"):
@@ -153,7 +154,6 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
                     print("get link %s, %d" % (downrst[0], downrst[1]))
                 break
 
-            found_list = 0
             if debug > 0 :
                 print("")
             try:
