@@ -15,7 +15,7 @@ task_lock = threading.Lock()
 task_queue = []
 task_currency = 1
 max_page = 20
-max_download_retry = 10
+max_download_retry = 30
 max_url_retry = 3
 
 #main_host="http://www.999avtb.com/"
