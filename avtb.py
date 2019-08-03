@@ -71,7 +71,7 @@ def fetch_link(url, idx, debug=0):
         finally:
             if debug > 0:
                 print("waiting for retry %s/%d ..." % (file_name, fail))
-            time.sleep(random.randint(1,5))
+            time.sleep(random.randint(3,8))
 
     ret = -1
     if file_size_dl == file_size and file_size > 0:
