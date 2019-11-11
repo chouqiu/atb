@@ -24,7 +24,7 @@ def fetch_link(url, idx, debug=0):
     file_host = file_info[2]
     print("fetching %s (%s) ..." % (file_name, file_host))
 
-    file_size_dl = 0
+    file_size_dl = -1
     file_size = 0
     fail = 0
     while fail <= get_max_download_retry():
@@ -51,10 +51,13 @@ def fetch_link(url, idx, debug=0):
             if file_size <= 0:
                 raise MyExcept("fetch_link: fetch %s fail, invalid size %d" % (file_name, file_size))
 
-            if os.path.exists(get_fullpath(file_name)) and file_size_dl <= 0:
+            if os.path.exists(get_fullpath(file_name)) and file_size_dl < 0:
                 file_size_dl = -3
                 break
 
+            if file_size_dl < 0:
+                file_size_dl = 0
+                
             file_size_dl = write_file(file_name, file_size, file_size_dl, idx, u)
 
             if file_size_dl == file_size:
