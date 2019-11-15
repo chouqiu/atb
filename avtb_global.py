@@ -20,7 +20,7 @@ max_url_retry = 3
 
 #main_host="http://www.999avtb.com/"
 main_host = 0
-host_list = ["http://www.avtb0055.com", "http://www.avtbdizhi.com"]
+host_list = ["http://www.avtb0077.com", "http://www.avtbdizhi.com"]
 
 store_path='.'
 
