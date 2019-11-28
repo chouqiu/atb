@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+2# -*- coding: utf-8 -*-
 
 import re
 import os
@@ -215,7 +215,7 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
 
 def check_queue(arg, arg_type, isshow=False, use_req=False):
     is_check_queue = True
-    vid = 0
+    vidstr = ""
     while is_check_queue:
         if arg_type == 1:
             task_lock.acquire()
@@ -235,7 +235,7 @@ def check_queue(arg, arg_type, isshow=False, use_req=False):
         if ret < 0 :
             task_lock.acquire()
             task_queue.insert(0, vid)
-            print("video %d download fail, readd in queue" % (vid))
+            print("video %s download fail, re-add in queue" % (vid))
             task_lock.release()
 
 
