@@ -202,28 +202,42 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
 
     if get_url_fail >= get_max_url_retry():
         print("Download fail: %s fetch fail, %s, file found %d, video list found %d" % (arg, downrst[0], found, found_list))
+        return -1
     if downrst[1] < 0 and arg_type == 1 :
         print("Download fail: get url %s fail: %d %s" % (url, downrst[1], downrst[0]))
         fn = update_file_stat(infoidx=info["id"], stat=-2)
         if re.match(r".", fn) and os.path.exists(get_fullpath(fn)):
             os.remove(get_fullpath(fn))
             print("remove file: %s ..." % (fn))
+        return -2
+    return 0
 
 
 def check_queue(arg, arg_type, isshow=False, use_req=False):
     is_check_queue = True
+    vid = 0
     while is_check_queue:
-        fetch_url(arg, arg_type, isshow, use_req)
+        if arg_type == 1:
+            task_lock.acquire()
+            if len(task_queue) > 0:
+                vid = task_queue.pop()
+                arg = make_url(vid)
+                print("start %s in queue, left %d" % (arg, len(task_queue)))
+            else :
+                print("no task in queue")
+                is_check_queue = False
+            task_lock.release()
+            
+        ret = fetch_url(arg, arg_type, isshow, use_req)
         if arg_type == 0:
             break
-        task_lock.acquire()
-        if len(task_queue) > 0:
-            arg = make_url(task_queue.pop())
-            print("start %s in queue, left %d" % (arg, len(task_queue)))
-        else :
-            print("no task in queue")
-            is_check_queue = False
-        task_lock.release()
+
+        if ret < 0 :
+            task_lock.acquire()
+            task_queue.insert(0, vid)
+            print("video %d download fail, readd in queue" % (vid))
+            task_lock.release()
+
 
     if get_download_count() > 0 :
         dec_download_count()
@@ -232,7 +246,10 @@ def check_queue(arg, arg_type, isshow=False, use_req=False):
 
 
 def run_download(argu, is_page=False):
-    print("run_download: %s" %(argu))
+    if is_page == True:
+        print("run_download: %s" %(argu))
+    else:
+        print("run_download from taskqueue")
     inc_download_count()
     if is_page:
         t = threading.Thread(target=check_queue, args=(argu, 0, True, True))
@@ -254,17 +271,17 @@ if __name__ == "__main__":
             print("current threads %d, exiting ..." % (get_download_count()))
             break
         if re.match(r"^[0-9]+$", user_input) :
-            uu = make_url(user_input)
+            task_lock.acquire()
+            #task_queue.append(uu)
+            task_queue.append(user_input)
+            print("current %d threads running, put in queue %d..." % (get_download_count(), len(task_queue)))
+            task_lock.release()
+            #uu = make_url(user_input)
             # print(user_input)
             if get_download_count() >= task_currency :
-                task_lock.acquire()
-                #task_queue.append(uu)
-                task_queue.append(user_input)
-                print("current %d threads running, put in queue %d..." % (get_download_count(), len(task_queue)))
-                task_lock.release()
                 continue
             else:
-                run_download(uu)
+                run_download("")
 
         if user_input == 'l' or re.match(r"^list$", user_input) :
             print("fetch list ...")
