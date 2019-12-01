@@ -1,4 +1,4 @@
-2# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import re
 import os
@@ -215,17 +215,28 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
 
 def check_queue(arg, arg_type, isshow=False, use_req=False):
     is_check_queue = True
-    vidstr = ""
+    vinfo = ()
+    overflowcnt = 0
+    
     while is_check_queue:
         if arg_type == 1:
             task_lock.acquire()
-            if len(task_queue) > 0:
-                vid = task_queue.pop()
-                arg = make_url(vid)
-                print("start %s in queue, left %d" % (arg, len(task_queue)))
+            ql = len(task_queue)
+            if ql > 0 and overflowcnt < 2*ql:
+                vinfo = task_queue.pop()
+                if vinfo[1] > 2 :
+                    print("retry video %s/%d overflow" % (vinfo[0], vinfo[1]))
+                    overflowcnt+=1
+                    task_lock.release()
+                    continue
+                arg = make_url(vinfo[0])
+                print("start %s/%d in queue, left %d" % (vinfo[0], vinfo[1], len(task_queue)))
             else :
-                print("no task in queue")
+                print("no task in queue, qlen/overflow: %d/%d" %(ql, overflowcnt))
                 is_check_queue = False
+                task_lock.release()
+                continue
+            
             task_lock.release()
             
         ret = fetch_url(arg, arg_type, isshow, use_req)
@@ -234,8 +245,8 @@ def check_queue(arg, arg_type, isshow=False, use_req=False):
 
         if ret < 0 :
             task_lock.acquire()
-            task_queue.insert(0, vid)
-            print("video %s download fail, re-add in queue" % (vid))
+            task_queue.insert(0, (vinfo[0], vinfo[1]+1))
+            print("video %s/%d download fail, re-add in queue" % (vinfo[0], vinfo[1]))
             task_lock.release()
 
 
@@ -273,7 +284,7 @@ if __name__ == "__main__":
         if re.match(r"^[0-9]+$", user_input) :
             task_lock.acquire()
             #task_queue.append(uu)
-            task_queue.append(user_input)
+            task_queue.append((user_input,0))
             print("current %d threads running, put in queue %d..." % (get_download_count(), len(task_queue)))
             task_lock.release()
             #uu = make_url(user_input)
@@ -311,14 +322,15 @@ if __name__ == "__main__":
             left = task_currency - get_download_count() 
             if left > 0:
                 for i in range(0, left):
-                    uu = ""
-                    task_lock.acquire()
-                    if len(task_queue) > 0:
-                        uu = task_queue.pop()
-                        print("ready to start queue %d - %s" % (len(task_queue), uu))
-                    task_lock.release()
-                    if uu != "":
-                        run_download(make_url(uu))
+                    run_download("")
+                    #uu = ""
+                    #task_lock.acquire()
+                    #if len(task_queue) > 0:
+                    #    uu = task_queue.pop()
+                    #    print("ready to start queue %d - %s" % (len(task_queue), uu))
+                    #task_lock.release()
+                    #if uu != "":
+                    #    run_download(make_url(uu))
         if re.match(r"^queue$", user_input) or user_input == "q":
             show_file_info()
             print("-------------------")
@@ -326,11 +338,12 @@ if __name__ == "__main__":
             qlen = len(task_queue)
             print("total %d task in queue" % (qlen))
             for i in range(0, qlen):
-                vinfo = find_video_info(task_queue[i])
+                videx = task_queue[i]
+                vinfo = find_video_info(videx[0])
                 if vinfo:
-                    print("%s - %s" % (task_queue[i], vinfo["name"]))
+                    print("%s - %s" % (videx[0], vinfo["name"]))
                 else :
-                    print("%s - invalid" % (task_queue[i]))
+                    print("%s - invalid" % (videx[0]))
             task_lock.release()
 
         if re.match(r"^showh$", user_input):
