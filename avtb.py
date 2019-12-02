@@ -227,6 +227,7 @@ def check_queue(arg, arg_type, isshow=False, use_req=False):
                 if vinfo[1] > 2 :
                     print("retry video %s/%d overflow" % (vinfo[0], vinfo[1]))
                     overflowcnt+=1
+                    task_queue.insert(0, (vinfo[0], vinfo[1]))
                     task_lock.release()
                     continue
                 arg = make_url(vinfo[0])
