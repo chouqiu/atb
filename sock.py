@@ -26,7 +26,7 @@ def request_get(host, path, debug=0):
     retry = 1
 
     global_headers = {'Host': host}
-    request = Request(url="http://%s/%s"%(host,path), headers=global_headers)
+    request = Request(url="https://%s/%s"%(host,path), headers=global_headers)
 
     while not http_ok and retry < 10:
         try:
@@ -52,14 +52,14 @@ def request_get(host, path, debug=0):
     data = data.decode('utf-8', errors='ignore')
     return data
 
-def urllib_get(host, path, debug=0):
+def urllib_get(url, host, path, debug=0):
     http_ok = False
     retry = 1
     global_headers = {'Host': host}
 
     while not http_ok and retry < 10:
         try:
-            request = requests.get(url=url, headers=global_headers)
+            request = requests.get(url=url, headers=global_headers, verify=False)
             request.raise_for_status()
             request.encoding = 'utf-8'
             http_ok = True

@@ -133,8 +133,9 @@ def fetch_url(arg, arg_type, isshow=False, use_req=False, debug=0):
                 get_path = '/' + get_path
 
             # 请求
-            if use_req == False:
-                data = sock.request_get(get_host, get_path)
+            if use_req == True: # False:
+                data = sock.request_get(get_host, get_path, debug=1)
+                # data = sock.urlib_get(get_host, get_path)
             else:
                 data = sock.http_get(url, debug=0)
 
